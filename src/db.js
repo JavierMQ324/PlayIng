@@ -1,12 +1,13 @@
-// db.js
 const mysql = require('mysql2');
+require('dotenv').config(); 
 
-// Configuración de la conexión
+// Configuración de la conexión usando variables de entorno
 const conexion = mysql.createConnection({
-  host: 'localhost',        
-  user: 'root',             
-  password: '',             
-  database: 'PlayIng'  
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT
 });
 
 // Probar conexión
@@ -19,3 +20,4 @@ conexion.connect((err) => {
 });
 
 module.exports = conexion;
+
