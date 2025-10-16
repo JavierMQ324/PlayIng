@@ -132,7 +132,10 @@ const googleAuthAdmin = async (req, res) => {
     }
 
     // Intercambiar código por tokens
-    const tokenResponse = await exchangeCodeForTokens(code, process.env.ADMIN_APP_URL || 'http://localhost:4200');
+    const tokenResponse = await exchangeCodeForTokens(
+      code,
+      process.env.ADMIN_APP_URL || process.env.SERVER_PUBLIC_URL || 'http://localhost:4200'
+    );
     
     if (!tokenResponse.id_token) {
       console.error('No se pudo obtener id_token:', tokenResponse);
@@ -171,7 +174,8 @@ const googleAuthCliente = async (req, res) => {
     }
 
     // Intercambiar código por tokens - usar callback
-    const tokenResponse = await exchangeCodeForTokens(code, 'http://localhost:3000/auth/callback');
+    const serverPublicUrl = process.env.SERVER_PUBLIC_URL || 'http://localhost:3000';
+    const tokenResponse = await exchangeCodeForTokens(code, `${serverPublicUrl}/auth/callback`);
     
     if (!tokenResponse.id_token) {
       console.error('No se pudo obtener id_token:', tokenResponse);

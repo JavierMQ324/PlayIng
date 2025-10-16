@@ -33,7 +33,8 @@ app.get('/auth/callback', (req, res) => {
   console.log('Callback móvil recibido:', { code });
   if (code) {
     // Redirigir a la app móvil con el código
-    res.redirect(`exp://192.168.1.100:8081/--/auth?code=${code}`);
+    const mobileAppUrl = process.env.MOBILE_APP_URL || 'exp://localhost:8081';
+    res.redirect(`${mobileAppUrl}/--/auth?code=${code}`);
   } else {
     res.status(400).send('Código de autorización no encontrado');
   }
@@ -63,8 +64,9 @@ app.use((err, req, res, next) => {
 
 // Puerto
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  const publicBaseUrl = process.env.SERVER_PUBLIC_URL || `http://0.0.0.0:${PORT}`;
+  console.log(`Servidor escuchando en ${publicBaseUrl}`);
   console.log(`Admin app URL: ${process.env.ADMIN_APP_URL || 'http://localhost:4200'}`);
   console.log(`Mobile app URL: ${process.env.MOBILE_APP_URL || 'exp://localhost:8081'}`);
 });
