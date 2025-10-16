@@ -2,6 +2,9 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const http = require('http').createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(http, { cors: { origin: true, credentials: true } });
 const db = require('./db'); 
 require('dotenv').config({ path: './src/.env' });
 
@@ -66,10 +69,19 @@ app.use((err, req, res, next) => {
 
 // Puerto
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+http.listen(PORT, '0.0.0.0', () => {
   const publicBaseUrl = process.env.SERVER_PUBLIC_URL || `http://0.0.0.0:${PORT}`;
   console.log(`Servidor escuchando en ${publicBaseUrl}`);
   console.log(`Admin app URL: ${process.env.ADMIN_APP_URL || 'http://localhost:4200'}`);
   console.log(`Mobile app URL: ${process.env.MOBILE_APP_URL || 'exp://localhost:8081'}`);
+});
+
+// Exponer io a controladores
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  socket.on('join_establecimiento', (establecimientoId) => {
+    socket.join(`establecimiento:${establecimientoId}`);
+  });
 });
 

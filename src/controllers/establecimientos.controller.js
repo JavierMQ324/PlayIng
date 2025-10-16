@@ -43,10 +43,15 @@ function ensureSchema() {
       ADD COLUMN qr_png LONGTEXT NULL;
   `;
 
+  const dropLegacyUniqueNumeroMesa = `
+    ALTER TABLE mesas DROP INDEX numero_mesa
+  `;
+
   db.query(createEstablecimientos, () => {
     db.query(addMesaForeign, () => {
       db.query(addMesaConstraint, () => {});
       db.query(addUniqueMesaByEst, () => {});
+      db.query(dropLegacyUniqueNumeroMesa, () => {});
       db.query(addMesaQrPng, () => {});
     });
   });
@@ -113,7 +118,13 @@ function createMesa(req, res) {
   const payload = { e: establecimiento_id, m: String(numero_mesa) };
   const qrPayload = JSON.stringify(payload);
   db.query(ins, [String(numero_mesa), qrPayload, 'libre', establecimiento_id], async (err, result) => {
-    if (err) return res.status(500).json({ error: 'DB error' });
+    if (err) {
+      console.error('Error creando mesa:', err);
+      if (err && err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'duplicate_mesa', message: 'Ya existe una mesa con ese número en este establecimiento.' });
+      }
+      return res.status(500).json({ error: 'DB error', details: err?.sqlMessage || err?.message });
+    }
     try {
       const qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 300 });
       const upd = 'UPDATE mesas SET qr_png = ? WHERE id_mesa = ?';
@@ -169,6 +180,45 @@ function getMesaQr(req, res) {
   });
 }
 
+// Vincular cliente a mesa por QR { e, m }
+function linkByQr(req, res) {
+  ensureSchema();
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'No autenticado' });
+  const { e, m } = req.body || {};
+  if (!e || !m) return res.status(400).json({ error: 'Payload inválido' });
+  const findMesa = 'SELECT id_mesa FROM mesas WHERE establecimiento_id = ? AND numero_mesa = ? LIMIT 1';
+  db.query(findMesa, [e, String(m)], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    if (!rows.length) return res.status(404).json({ error: 'Mesa no encontrada' });
+    const mesaId = rows[0].id_mesa;
+    const updUser = 'UPDATE usuarios SET mesa_id_activa = ? WHERE id_user = ?';
+    db.query(updUser, [mesaId, userId], (uErr) => {
+      if (uErr) return res.status(500).json({ error: 'DB error' });
+      const io = req.app.get('io');
+      io.to(`establecimiento:${e}`).emit('establecimiento:clientes_actualizados');
+      res.json({ success: true, mesa_id: mesaId, establecimiento_id: e, numero_mesa: String(m), estado_orden: 'Inactiva' });
+    });
+  });
+}
+
+// Listar clientes activos por establecimiento (usuarios con mesa asignada)
+function listClientes(req, res) {
+  ensureSchema();
+  if (req.user?.roll !== 'admin') return res.status(403).json({ error: 'Solo administradores' });
+  const { id } = req.params; // establecimiento id
+  const sql = `
+    SELECT u.id_user AS id, u.nombre, u.mesa_id_activa AS mesa_id, m.numero_mesa AS mesa
+    FROM usuarios u
+    JOIN mesas m ON m.id_mesa = u.mesa_id_activa
+    WHERE m.establecimiento_id = ?
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    const clientes = rows.map(r => ({ id: r.id, nombre: r.nombre, mesa: parseInt(r.mesa, 10) || 0, estado: 'Inactiva' }));
+    res.json({ success: true, clientes });
+  });
+}
 // Eliminar la última mesa (la de mayor numero_mesa) de un establecimiento
 function deleteLastMesa(req, res) {
   ensureSchema();
@@ -182,8 +232,21 @@ function deleteLastMesa(req, res) {
     const del = 'DELETE FROM mesas WHERE id_mesa = ?';
     db.query(del, [last.id_mesa], (dErr) => {
       if (dErr) return res.status(500).json({ error: 'DB error' });
+      const io = req.app.get('io');
+      io.to(`establecimiento:${id}`).emit('establecimiento:mesas_actualizadas');
       res.json({ success: true, deleted: last });
     });
+  });
+}
+
+// Salir del restaurante: eliminar la relación mesa_id_activa del usuario cliente
+function leaveRestaurant(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'No autenticado' });
+  const sql = 'UPDATE usuarios SET mesa_id_activa = NULL WHERE id_user = ?';
+  db.query(sql, [userId], (err) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    res.json({ success: true });
   });
 }
 
@@ -194,5 +257,8 @@ module.exports = {
   createMesa,
   listMesas,
   deleteLastMesa,
-  getMesaQr
+  getMesaQr,
+  linkByQr,
+  listClientes,
+  leaveRestaurant
 };
