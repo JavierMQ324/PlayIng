@@ -143,7 +143,18 @@ function createMesa(req, res) {
 function listMesas(req, res) {
   ensureSchema();
   const { id } = req.params;
-  const sql = 'SELECT id_mesa, numero_mesa, status, establecimiento_id, qr_png FROM mesas WHERE establecimiento_id = ? ORDER BY CAST(numero_mesa AS UNSIGNED) ASC';
+  const sql = `
+    SELECT m.id_mesa,
+           m.numero_mesa,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM usuarios u WHERE u.mesa_id_activa = m.id_mesa
+           ) THEN 'ocupada' ELSE 'libre' END AS status,
+           m.establecimiento_id,
+           m.qr_png
+    FROM mesas m
+    WHERE m.establecimiento_id = ?
+    ORDER BY CAST(m.numero_mesa AS UNSIGNED) ASC
+  `;
   db.query(sql, [id], (err, rows) => {
     if (err) return res.status(500).json({ error: 'DB error' });
     const baseUrl = process.env.SERVER_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
@@ -199,6 +210,7 @@ function linkByQr(req, res) {
       if (uErr) return res.status(500).json({ error: 'DB error' });
       const io = req.app.get('io');
       io.to(`establecimiento:${e}`).emit('establecimiento:clientes_actualizados');
+      io.to(`establecimiento:${e}`).emit('establecimiento:mesas_actualizadas');
       res.json({ success: true, mesa_id: mesaId, establecimiento_id: e, numero_mesa: String(m), estado_orden: 'Inactiva' });
     });
   });
@@ -270,14 +282,21 @@ function kickUsers(req, res) {
 function leaveRestaurant(req, res) {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: 'No autenticado' });
-  const sql = 'UPDATE usuarios SET mesa_id_activa = NULL WHERE id_user = ?';
-  db.query(sql, [userId], (err) => {
-    if (err) return res.status(500).json({ error: 'DB error' });
-    // Emitir actualización a todos los establecimientos donde estaba el usuario, si lo conocemos
-    // Como no lo sabemos aquí, el front admin refrescará por evento genérico
-    const io = req.app.get('io');
-    io.emit('establecimiento:clientes_actualizados');
-    res.json({ success: true });
+  const findEst = `SELECT m.establecimiento_id FROM usuarios u JOIN mesas m ON m.id_mesa = u.mesa_id_activa WHERE u.id_user = ? LIMIT 1`;
+  db.query(findEst, [userId], (fErr, rows) => {
+    const estId = rows && rows[0] ? rows[0].establecimiento_id : null;
+    const sql = 'UPDATE usuarios SET mesa_id_activa = NULL WHERE id_user = ?';
+    db.query(sql, [userId], (err) => {
+      if (err) return res.status(500).json({ error: 'DB error' });
+      const io = req.app.get('io');
+      if (estId) {
+        io.to(`establecimiento:${estId}`).emit('establecimiento:clientes_actualizados');
+        io.to(`establecimiento:${estId}`).emit('establecimiento:mesas_actualizadas');
+      } else {
+        io.emit('establecimiento:clientes_actualizados');
+      }
+      res.json({ success: true });
+    });
   });
 }
 
