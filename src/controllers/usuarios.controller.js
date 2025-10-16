@@ -220,11 +220,16 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Obtener perfil del usuario autenticado
+// Obtener perfil del usuario autenticado (siempre desde BD para tener mesa actualizada)
 const getProfile = (req, res) => {
-  res.json({
-    success: true,
-    user: req.user
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'No autenticado' });
+  }
+  db.query('SELECT id_user AS id, nombre, email, roll, mesa_id_activa FROM usuarios WHERE id_user = ? LIMIT 1', [userId], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, error: 'DB error' });
+    if (!rows || !rows[0]) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    res.json({ success: true, user: rows[0] });
   });
 };
 
