@@ -243,12 +243,20 @@ function deleteLastMesa(req, res) {
     if (sErr) return res.status(500).json({ error: 'DB error' });
     if (!rows.length) return res.status(404).json({ error: 'No hay mesas para eliminar' });
     const last = rows[0];
+    // Verificar si hay usuarios ocupando la mesa
+    const check = 'SELECT COUNT(*) AS cnt FROM usuarios WHERE mesa_id_activa = ?';
+    db.query(check, [last.id_mesa], (cErr, cRows) => {
+      if (cErr) return res.status(500).json({ error: 'DB error' });
+      if (cRows && cRows[0] && cRows[0].cnt > 0) {
+        return res.status(409).json({ error: 'mesa_ocupada', message: 'No se puede eliminar: hay un usuario asignado a esta mesa.' });
+      }
     const del = 'DELETE FROM mesas WHERE id_mesa = ?';
     db.query(del, [last.id_mesa], (dErr) => {
       if (dErr) return res.status(500).json({ error: 'DB error' });
       const io = req.app.get('io');
       io.to(`establecimiento:${id}`).emit('establecimiento:mesas_actualizadas');
       res.json({ success: true, deleted: last });
+    });
     });
   });
 }
