@@ -38,10 +38,16 @@ function ensureSchema() {
       ADD UNIQUE KEY uniq_mesa_por_establecimiento (establecimiento_id, numero_mesa);
   `;
 
+  const addMesaQrPng = `
+    ALTER TABLE mesas
+      ADD COLUMN qr_png LONGTEXT NULL;
+  `;
+
   db.query(createEstablecimientos, () => {
     db.query(addMesaForeign, () => {
       db.query(addMesaConstraint, () => {});
       db.query(addUniqueMesaByEst, () => {});
+      db.query(addMesaQrPng, () => {});
     });
   });
 }
@@ -110,7 +116,10 @@ function createMesa(req, res) {
     if (err) return res.status(500).json({ error: 'DB error' });
     try {
       const qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 300 });
-      res.json({ success: true, mesa: { id_mesa: result.insertId, numero_mesa: String(numero_mesa), qr_code: qrPayload, establecimiento_id }, qr_image: qrDataUrl, qr_payload: payload });
+      const upd = 'UPDATE mesas SET qr_png = ? WHERE id_mesa = ?';
+      db.query(upd, [qrDataUrl, result.insertId], () => {
+        res.json({ success: true, mesa: { id_mesa: result.insertId, numero_mesa: String(numero_mesa), qr_code: qrPayload, establecimiento_id }, qr_image: qrDataUrl, qr_payload: payload });
+      });
     } catch (e) {
       res.json({ success: true, mesa: { id_mesa: result.insertId, numero_mesa: String(numero_mesa), qr_code: qrPayload, establecimiento_id }, qr_payload: payload });
     }
@@ -121,10 +130,60 @@ function createMesa(req, res) {
 function listMesas(req, res) {
   ensureSchema();
   const { id } = req.params;
-  const sql = 'SELECT id_mesa, numero_mesa, status, establecimiento_id FROM mesas WHERE establecimiento_id = ? ORDER BY numero_mesa ASC';
+  const sql = 'SELECT id_mesa, numero_mesa, status, establecimiento_id, qr_png FROM mesas WHERE establecimiento_id = ? ORDER BY CAST(numero_mesa AS UNSIGNED) ASC';
   db.query(sql, [id], (err, rows) => {
     if (err) return res.status(500).json({ error: 'DB error' });
-    res.json({ success: true, mesas: rows });
+    const baseUrl = process.env.SERVER_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+    const mesas = rows.map(r => ({
+      ...r,
+      qr_url: `${baseUrl}/api/establecimientos/mesas/${r.id_mesa}/qr`
+    }));
+    res.json({ success: true, mesas });
+  });
+}
+
+// Obtener PNG de QR para una mesa concreta
+function getMesaQr(req, res) {
+  ensureSchema();
+  const { mesaId } = req.params;
+  const sql = 'SELECT qr_code, qr_png FROM mesas WHERE id_mesa = ? LIMIT 1';
+  db.query(sql, [mesaId], async (err, rows) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    if (!rows.length) return res.status(404).json({ error: 'Mesa no encontrada' });
+    const existing = rows[0];
+    if (existing.qr_png) {
+      // Data URL -> binary
+      const base64 = existing.qr_png.split(',')[1] || '';
+      const buffer = Buffer.from(base64, 'base64');
+      res.setHeader('Content-Type', 'image/png');
+      return res.send(buffer);
+    }
+    const payload = existing.qr_code || '';
+    try {
+      const buffer = await QRCode.toBuffer(payload, { margin: 1, width: 512 });
+      res.setHeader('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (e) {
+      res.status(500).json({ error: 'No se pudo generar el QR' });
+    }
+  });
+}
+
+// Eliminar la última mesa (la de mayor numero_mesa) de un establecimiento
+function deleteLastMesa(req, res) {
+  ensureSchema();
+  if (!requireAdmin(req, res)) return;
+  const { id } = req.params; // establecimiento id
+  const selectLast = 'SELECT id_mesa, numero_mesa FROM mesas WHERE establecimiento_id = ? ORDER BY CAST(numero_mesa AS UNSIGNED) DESC LIMIT 1';
+  db.query(selectLast, [id], (sErr, rows) => {
+    if (sErr) return res.status(500).json({ error: 'DB error' });
+    if (!rows.length) return res.status(404).json({ error: 'No hay mesas para eliminar' });
+    const last = rows[0];
+    const del = 'DELETE FROM mesas WHERE id_mesa = ?';
+    db.query(del, [last.id_mesa], (dErr) => {
+      if (dErr) return res.status(500).json({ error: 'DB error' });
+      res.json({ success: true, deleted: last });
+    });
   });
 }
 
@@ -133,5 +192,7 @@ module.exports = {
   upsertMyEstablecimiento,
   getMyEstablecimiento,
   createMesa,
-  listMesas
+  listMesas,
+  deleteLastMesa,
+  getMesaQr
 };
