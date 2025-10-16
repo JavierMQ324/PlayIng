@@ -244,10 +244,17 @@ const getAllUsers = (req, res) => {
   });
 };
 
+// Cerrar sesión (stateless: el cliente simplemente descarta el token)
+const logout = (req, res) => {
+  // Opcionalmente podríamos llevar una blacklist si se requiere invalidación temprana
+  res.json({ success: true, message: 'Sesión cerrada' });
+};
+
 module.exports = {
   googleAuthAdmin,
   googleAuthCliente,
   verifyToken,
   getProfile,
-  getAllUsers
+  getAllUsers,
+  logout
 };

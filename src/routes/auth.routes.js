@@ -5,12 +5,14 @@ const {
   googleAuthCliente, 
   verifyToken, 
   getProfile,
-  getAllUsers 
+  getAllUsers,
+  logout
 } = require('../controllers/usuarios.controller');
 
 // Rutas de autenticación
 router.post('/google/admin', googleAuthAdmin);
 router.post('/google/cliente', googleAuthCliente);
+router.post('/logout', logout);
 
 // Rutas protegidas
 router.get('/profile', verifyToken, getProfile);
