@@ -10,7 +10,8 @@ const {
   getMesaQr,
   linkByQr,
   listClientes,
-  leaveRestaurant
+  leaveRestaurant,
+  kickUsers
 } = require('../controllers/establecimientos.controller');
 
 router.get('/mio', verifyToken, getMyEstablecimiento);
@@ -23,5 +24,6 @@ router.get('/mesas/:mesaId/qr', getMesaQr);
 router.post('/qr/vincular', verifyToken, linkByQr);
 router.get('/:id/clientes', verifyToken, listClientes);
 router.post('/leave', verifyToken, leaveRestaurant);
+router.post('/:id/kick', verifyToken, kickUsers);
 
 module.exports = router;

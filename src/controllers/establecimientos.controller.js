@@ -129,6 +129,8 @@ function createMesa(req, res) {
       const qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 300 });
       const upd = 'UPDATE mesas SET qr_png = ? WHERE id_mesa = ?';
       db.query(upd, [qrDataUrl, result.insertId], () => {
+        const io = req.app.get('io');
+        io.to(`establecimiento:${establecimiento_id}`).emit('establecimiento:mesas_actualizadas');
         res.json({ success: true, mesa: { id_mesa: result.insertId, numero_mesa: String(numero_mesa), qr_code: qrPayload, establecimiento_id }, qr_image: qrDataUrl, qr_payload: payload });
       });
     } catch (e) {
@@ -239,6 +241,31 @@ function deleteLastMesa(req, res) {
   });
 }
 
+// Expulsar usuarios del establecimiento: desvincular mesa y notificar por sockets
+function kickUsers(req, res) {
+  ensureSchema();
+  if (req.user?.roll !== 'admin') return res.status(403).json({ error: 'Solo administradores' });
+  const { id } = req.params; // establecimiento id
+  const { user_ids } = req.body || {};
+  if (!Array.isArray(user_ids) || user_ids.length === 0) {
+    return res.status(400).json({ error: 'user_ids requerido' });
+  }
+  const placeholders = user_ids.map(() => '?').join(',');
+  const sql = `
+    UPDATE usuarios u
+    JOIN mesas m ON m.id_mesa = u.mesa_id_activa
+    SET u.mesa_id_activa = NULL
+    WHERE m.establecimiento_id = ? AND u.id_user IN (${placeholders})
+  `;
+  db.query(sql, [id, ...user_ids], (err, result) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    const io = req.app.get('io');
+    io.to(`establecimiento:${id}`).emit('establecimiento:clientes_actualizados');
+    user_ids.forEach((uid) => io.to(`user:${uid}`).emit('user:kicked'));
+    res.json({ success: true, affected: result?.affectedRows || 0 });
+  });
+}
+
 // Salir del restaurante: eliminar la relación mesa_id_activa del usuario cliente
 function leaveRestaurant(req, res) {
   const userId = req.user?.id;
@@ -246,6 +273,10 @@ function leaveRestaurant(req, res) {
   const sql = 'UPDATE usuarios SET mesa_id_activa = NULL WHERE id_user = ?';
   db.query(sql, [userId], (err) => {
     if (err) return res.status(500).json({ error: 'DB error' });
+    // Emitir actualización a todos los establecimientos donde estaba el usuario, si lo conocemos
+    // Como no lo sabemos aquí, el front admin refrescará por evento genérico
+    const io = req.app.get('io');
+    io.emit('establecimiento:clientes_actualizados');
     res.json({ success: true });
   });
 }
@@ -260,5 +291,6 @@ module.exports = {
   getMesaQr,
   linkByQr,
   listClientes,
-  leaveRestaurant
+  leaveRestaurant,
+  kickUsers
 };

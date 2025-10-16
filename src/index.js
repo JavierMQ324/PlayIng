@@ -83,5 +83,8 @@ io.on('connection', (socket) => {
   socket.on('join_establecimiento', (establecimientoId) => {
     socket.join(`establecimiento:${establecimientoId}`);
   });
+  socket.on('join_user', (userId) => {
+    socket.join(`user:${userId}`);
+  });
 });
 
