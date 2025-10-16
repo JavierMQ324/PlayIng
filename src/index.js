@@ -17,6 +17,7 @@ app.use(cors({
 
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
+const establecimientosRoutes = require('./routes/establecimientos.routes');
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
 
 // Rutas
 app.use('/api/auth', authRoutes);
+app.use('/api/establecimientos', establecimientosRoutes);
 
 // Ruta de callback para OAuth móvil
 app.get('/auth/callback', (req, res) => {
