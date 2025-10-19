@@ -293,8 +293,8 @@ class MusicaController {
 
       if (playImmediately) {
         // Si se debe reproducir inmediatamente, poner en posición 1
-        // Primero marcar la canción actual (posición 1) como reproducida
-        await MusicaController.markCurrentAsPlayed(establecimientoId);
+        // Primero mover la canción actual (posición 1) al historial si existe
+        await MusicaController.moveCurrentToHistory(establecimientoId);
         // Luego mover todas las demás canciones una posición hacia abajo
         await MusicaController.shiftQueuePositions(establecimientoId);
         position = 1;
@@ -350,7 +350,7 @@ class MusicaController {
          FROM cola_cancion cc
          JOIN canciones c ON cc.cancion_id = c.id_cancion
          JOIN usuarios u ON cc.anadido_por = u.id_user
-         WHERE cc.establecimiento_id = ? AND cc.posicion > 1
+         WHERE cc.establecimiento_id = ? AND cc.status IN ("pending", "playing")
          ORDER BY cc.posicion ASC`,
         [establecimientoId],
         (err, results) => {
@@ -457,7 +457,7 @@ class MusicaController {
          FROM cola_cancion cc
          JOIN canciones c ON cc.cancion_id = c.id_cancion
          JOIN usuarios u ON cc.anadido_por = u.id_user
-         WHERE cc.establecimiento_id = ? AND cc.posicion = 1
+         WHERE cc.establecimiento_id = ? AND cc.posicion = 1 AND cc.status = "playing"
          ORDER BY cc.agregada_en DESC
          LIMIT 1`,
         [establecimientoId],
@@ -491,73 +491,116 @@ class MusicaController {
     try {
       const { queueId, establecimientoId, userId } = req.body;
 
-      // Marcar canción actual como reproducida
+      // Primero obtener la información de la canción actual
       db.query(
-        'UPDATE cola_cancion SET status = "played" WHERE id = ?',
+        `SELECT cc.id, cc.cancion_id, cc.anadido_por, cc.establecimiento_id
+         FROM cola_cancion cc WHERE cc.id = ?`,
         [queueId],
-        (err, result) => {
+        (err, currentTrack) => {
           if (err) {
-            console.error('Error marking as played:', err);
+            console.error('Error getting current track:', err);
             res.status(500).json({
               success: false,
-              error: 'Failed to mark song as played'
+              error: 'Failed to get current track'
             });
-          } else {
-            // Agregar al historial
-            db.query(
-              `INSERT INTO historial_reproduccion (cancion_id, establecimiento_id, usuario_id, reproducida_en, completada)
-               SELECT cc.cancion_id, cc.establecimiento_id, cc.anadido_por, NOW(), 1
-               FROM cola_cancion cc WHERE cc.id = ?`,
-              [queueId],
-              (histErr) => {
-                if (histErr) {
-                  console.error('Error adding to history:', histErr);
-                }
-              }
-            );
+            return;
+          }
 
-            // Obtener siguiente canción
-            db.query(
-              `SELECT cc.id, cc.posicion, cc.status, cc.agregada_en,
-                      c.spotify_id, c.titulo, c.artista, c.album, c.duracion, c.imagen_url, c.genero, c.preview_url,
-                      u.nombre as usuario_nombre
-               FROM cola_cancion cc
-               JOIN canciones c ON cc.cancion_id = c.id_cancion
-               JOIN usuarios u ON cc.anadido_por = u.id_user
-               WHERE cc.establecimiento_id = ? AND cc.status = 'pending'
-               ORDER BY cc.posicion ASC
-               LIMIT 1`,
-              [establecimientoId],
-              (nextErr, nextResults) => {
-                if (nextErr) {
-                  console.error('Error getting next song:', nextErr);
-                  res.status(500).json({
-                    success: false,
-                    error: 'Failed to get next song'
-                  });
-                } else {
-                  // Marcar siguiente canción como playing
-                  if (nextResults.length > 0) {
-                    db.query(
-                      'UPDATE cola_cancion SET status = "playing" WHERE id = ?',
-                      [nextResults[0].id],
-                      (playErr) => {
-                        if (playErr) {
-                          console.error('Error updating next song status:', playErr);
-                        }
-                      }
-                    );
+          if (currentTrack.length === 0) {
+            res.status(404).json({
+              success: false,
+              error: 'Track not found'
+            });
+            return;
+          }
+
+          const track = currentTrack[0];
+
+          // Agregar al historial
+          db.query(
+            `INSERT INTO historial_reproduccion (cancion_id, establecimiento_id, usuario_id, reproducida_en, completada)
+             VALUES (?, ?, ?, NOW(), 1)`,
+            [track.cancion_id, track.establecimiento_id, track.anadido_por],
+            (histErr) => {
+              if (histErr) {
+                console.error('Error adding to history:', histErr);
+                res.status(500).json({
+                  success: false,
+                  error: 'Failed to add to history'
+                });
+                return;
+              }
+
+              // Eliminar de la cola
+              db.query(
+                'DELETE FROM cola_cancion WHERE id = ?',
+                [queueId],
+                (deleteErr) => {
+                  if (deleteErr) {
+                    console.error('Error removing from queue:', deleteErr);
+                    res.status(500).json({
+                      success: false,
+                      error: 'Failed to remove from queue'
+                    });
+                    return;
                   }
 
-                  res.json({
-                    success: true,
-                    message: 'Song marked as played',
-                    nextTrack: nextResults[0] || null
-                  });
+                  // Reorganizar posiciones de las canciones restantes
+                  db.query(
+                    'UPDATE cola_cancion SET posicion = posicion - 1 WHERE establecimiento_id = ? AND posicion > 1',
+                    [establecimientoId],
+                    (shiftErr) => {
+                      if (shiftErr) {
+                        console.error('Error shifting positions:', shiftErr);
+                      }
+
+                      // Obtener siguiente canción (ahora en posición 1)
+                      db.query(
+                        `SELECT cc.id, cc.posicion, cc.status, cc.agregada_en,
+                                c.spotify_id, c.titulo, c.artista, c.album, c.duracion, c.imagen_url, c.genero, c.preview_url,
+                                u.nombre as usuario_nombre
+                         FROM cola_cancion cc
+                         JOIN canciones c ON cc.cancion_id = c.id_cancion
+                         JOIN usuarios u ON cc.anadido_por = u.id_user
+                         WHERE cc.establecimiento_id = ? AND cc.posicion = 1 AND cc.status = 'pending'
+                         LIMIT 1`,
+                        [establecimientoId],
+                        (nextErr, nextResults) => {
+                          if (nextErr) {
+                            console.error('Error getting next song:', nextErr);
+                            res.status(500).json({
+                              success: false,
+                              error: 'Failed to get next song'
+                            });
+                            return;
+                          }
+
+                          // Marcar siguiente canción como playing
+                          if (nextResults.length > 0) {
+                            db.query(
+                              'UPDATE cola_cancion SET status = "playing" WHERE id = ?',
+                              [nextResults[0].id],
+                              (playErr) => {
+                                if (playErr) {
+                                  console.error('Error updating next song status:', playErr);
+                                }
+                              }
+                            );
+                          }
+
+                          res.json({
+                            success: true,
+                            message: 'Song moved to history and next song started',
+                            nextTrack: nextResults[0] || null
+                          });
+                        }
+                      );
+                    }
+                  );
                 }
-              }
-            );
-          }
+              );
+            }
+          );
         }
       );
 
@@ -919,7 +962,7 @@ class MusicaController {
   static async getNextQueuePosition(establecimientoId) {
     return new Promise((resolve) => {
       db.query(
-        'SELECT COALESCE(MAX(posicion), 0) + 1 as next_position FROM cola_cancion WHERE establecimiento_id = ?',
+        'SELECT COALESCE(MAX(posicion), 0) + 1 as next_position FROM cola_cancion WHERE establecimiento_id = ? AND status IN ("pending", "playing")',
         [establecimientoId],
         (err, results) => {
           if (err) {
@@ -928,6 +971,65 @@ class MusicaController {
             return;
           }
           resolve(results[0].next_position);
+        }
+      );
+    });
+  }
+
+  // Helper: Mover la canción actual (posición 1) al historial y eliminarla de la cola
+  static async moveCurrentToHistory(establecimientoId) {
+    return new Promise((resolve) => {
+      // Primero obtener la información de la canción actual
+      db.query(
+        `SELECT cc.id, cc.cancion_id, cc.anadido_por, cc.establecimiento_id
+         FROM cola_cancion cc
+         WHERE cc.establecimiento_id = ? AND cc.posicion = 1 AND cc.status = 'playing'
+         LIMIT 1`,
+        [establecimientoId],
+        (err, currentTrack) => {
+          if (err) {
+            console.error('Error getting current track:', err);
+            resolve(false);
+            return;
+          }
+
+          if (currentTrack.length === 0) {
+            console.log('No current track to move to history');
+            resolve(true); // No hay canción actual, continuar
+            return;
+          }
+
+          const track = currentTrack[0];
+
+          // Agregar al historial
+          db.query(
+            `INSERT INTO historial_reproduccion (cancion_id, establecimiento_id, usuario_id, reproducida_en, completada)
+             VALUES (?, ?, ?, NOW(), 1)`,
+            [track.cancion_id, track.establecimiento_id, track.anadido_por],
+            (histErr) => {
+              if (histErr) {
+                console.error('Error adding to history:', histErr);
+                resolve(false);
+                return;
+              }
+
+              // Eliminar de la cola
+              db.query(
+                'DELETE FROM cola_cancion WHERE id = ?',
+                [track.id],
+                (deleteErr, deleteResult) => {
+                  if (deleteErr) {
+                    console.error('Error removing from queue:', deleteErr);
+                    resolve(false);
+                    return;
+                  }
+
+                  console.log(`Moved current track to history and removed from queue`);
+                  resolve(true);
+                }
+              );
+            }
+          );
         }
       );
     });
@@ -956,7 +1058,7 @@ class MusicaController {
   static async shiftQueuePositions(establecimientoId) {
     return new Promise((resolve) => {
       db.query(
-        'UPDATE cola_cancion SET posicion = posicion + 1 WHERE establecimiento_id = ? AND status != "played"',
+        'UPDATE cola_cancion SET posicion = posicion + 1 WHERE establecimiento_id = ? AND status IN ("pending", "playing")',
         [establecimientoId],
         (err, result) => {
           if (err) {
