@@ -1,10 +1,12 @@
 // index.js
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
 const app = express();
-const http = require('http').createServer(app);
+const server = http.createServer(app);
+
 const { Server } = require('socket.io');
-const io = new Server(http, { cors: { origin: true, credentials: true } });
+const io = new Server(server, { cors: { origin: true, credentials: true } });
 const db = require('./db'); 
 require('dotenv').config({ path: './src/.env' });
 
@@ -21,6 +23,9 @@ app.use(cors({
 // Importar rutas
 const authRoutes = require('./routes/auth.routes');
 const establecimientosRoutes = require('./routes/establecimientos.routes');
+const spotifyRoutes = require('./routes/spotify.routes');
+const spotifyEstablecimientoRoutes = require('./routes/spotify-establecimiento.routes');
+const musicaRoutes = require('./routes/musica.routes');
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -31,6 +36,9 @@ app.use((req, res, next) => {
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/establecimientos', establecimientosRoutes);
+app.use('/api/spotify', spotifyRoutes);
+app.use('/api/spotify-establecimiento', spotifyEstablecimientoRoutes);
+app.use('/api/musica', musicaRoutes);
 
 // Ruta de callback para OAuth móvil
 app.get('/auth/callback', (req, res) => {
@@ -45,6 +53,20 @@ app.get('/auth/callback', (req, res) => {
   }
 });
 
+// Ruta de callback para Spotify
+app.get('/callback/spotify', (req, res) => {
+  const { code, state } = req.query;
+  console.log('Callback de Spotify recibido:', { code, state });
+  
+  if (code && state) {
+    // Redirigir al frontend con los parámetros
+    const frontendUrl = process.env.ADMIN_APP_URL || 'http://localhost:4200';
+    res.redirect(`${frontendUrl}/callback/spotify?code=${code}&state=${state}`);
+  } else {
+    res.status(400).send('Parámetros de callback faltantes');
+  }
+});
+
 // Ruta principal
 app.get('/', (req, res) => {
   res.json({ 
@@ -56,6 +78,15 @@ app.get('/', (req, res) => {
         'POST /api/auth/google/cliente': 'Autenticación Google para clientes',
         'GET /api/auth/profile': 'Obtener perfil del usuario autenticado',
         'GET /api/auth/users': 'Obtener todos los usuarios (solo admin)'
+      },
+      spotify: {
+        'GET /api/spotify/auth': 'Obtener URL de autorización de Spotify',
+        'POST /api/spotify/callback': 'Manejar callback de OAuth de Spotify',
+        'GET /api/spotify/credentials/:userId': 'Obtener credenciales de Spotify del usuario',
+        'POST /api/spotify/refresh/:userId': 'Refrescar token de acceso de Spotify',
+        'GET /api/spotify/search/:userId': 'Buscar canciones en Spotify',
+        'GET /api/spotify/playback/:userId': 'Obtener estado de reproducción actual',
+        'DELETE /api/spotify/disconnect/:userId': 'Desconectar cuenta de Spotify'
       }
     }
   });
@@ -69,7 +100,7 @@ app.use((err, req, res, next) => {
 
 // Puerto
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   const publicBaseUrl = process.env.SERVER_PUBLIC_URL || `http://0.0.0.0:${PORT}`;
   console.log(`Servidor escuchando en ${publicBaseUrl}`);
   console.log(`Admin app URL: ${process.env.ADMIN_APP_URL || 'http://localhost:4200'}`);
