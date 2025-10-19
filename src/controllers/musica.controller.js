@@ -258,7 +258,7 @@ class MusicaController {
   // Agregar canción a la cola
   static async addToQueue(req, res) {
     try {
-      const { track, userId, establecimientoId } = req.body;
+      const { track, userId, establecimientoId, playImmediately = false } = req.body;
 
       if (!track || !userId || !establecimientoId) {
         return res.status(400).json({
@@ -288,15 +288,28 @@ class MusicaController {
       // Guardar o actualizar canción en la base de datos
       await MusicaController.saveOrUpdateTrack(track);
 
-      // Obtener siguiente posición en la cola
-      const nextPosition = await MusicaController.getNextQueuePosition(establecimientoId);
+      let position;
+      let status = 'pending';
+
+      if (playImmediately) {
+        // Si se debe reproducir inmediatamente, poner en posición 1
+        // Primero marcar la canción actual (posición 1) como reproducida
+        await MusicaController.markCurrentAsPlayed(establecimientoId);
+        // Luego mover todas las demás canciones una posición hacia abajo
+        await MusicaController.shiftQueuePositions(establecimientoId);
+        position = 1;
+        status = 'playing';
+      } else {
+        // Obtener siguiente posición en la cola (al final)
+        position = await MusicaController.getNextQueuePosition(establecimientoId);
+      }
 
       // Agregar a la cola
       db.query(
         `INSERT INTO cola_cancion (cancion_id, anadido_por, establecimiento_id, posicion, status, agregada_en)
-         SELECT id_cancion, ?, ?, ?, 'pending', NOW()
+         SELECT id_cancion, ?, ?, ?, ?, NOW()
          FROM canciones WHERE spotify_id = ?`,
-        [userId, establecimientoId, nextPosition, track.spotify_id],
+        [userId, establecimientoId, position, status, track.spotify_id],
         (err, result) => {
           if (err) {
             console.error('Error adding to queue:', err);
@@ -307,8 +320,10 @@ class MusicaController {
           } else {
             res.json({
               success: true,
-              message: 'Song added to queue successfully',
-              queueId: result.insertId
+              message: playImmediately ? 'Song added to queue and started playing' : 'Song added to queue successfully',
+              queueId: result.insertId,
+              position: position,
+              status: status
             });
           }
         }
@@ -335,7 +350,7 @@ class MusicaController {
          FROM cola_cancion cc
          JOIN canciones c ON cc.cancion_id = c.id_cancion
          JOIN usuarios u ON cc.anadido_por = u.id_user
-         WHERE cc.establecimiento_id = ?
+         WHERE cc.establecimiento_id = ? AND cc.posicion > 1
          ORDER BY cc.posicion ASC`,
         [establecimientoId],
         (err, results) => {
@@ -442,8 +457,8 @@ class MusicaController {
          FROM cola_cancion cc
          JOIN canciones c ON cc.cancion_id = c.id_cancion
          JOIN usuarios u ON cc.anadido_por = u.id_user
-         WHERE cc.establecimiento_id = ? AND cc.status = 'playing'
-         ORDER BY cc.posicion ASC
+         WHERE cc.establecimiento_id = ? AND cc.posicion = 1
+         ORDER BY cc.agregada_en DESC
          LIMIT 1`,
         [establecimientoId],
         (err, results) => {
@@ -913,6 +928,44 @@ class MusicaController {
             return;
           }
           resolve(results[0].next_position);
+        }
+      );
+    });
+  }
+
+  // Helper: Marcar la canción actual (posición 1) como reproducida
+  static async markCurrentAsPlayed(establecimientoId) {
+    return new Promise((resolve) => {
+      db.query(
+        'UPDATE cola_cancion SET status = "played" WHERE establecimiento_id = ? AND posicion = 1',
+        [establecimientoId],
+        (err, result) => {
+          if (err) {
+            console.error('Error marking current as played:', err);
+            resolve(false);
+            return;
+          }
+          console.log(`Marked ${result.affectedRows} current track as played`);
+          resolve(true);
+        }
+      );
+    });
+  }
+
+  // Helper: Desplazar posiciones de la cola para hacer espacio en la posición 1
+  static async shiftQueuePositions(establecimientoId) {
+    return new Promise((resolve) => {
+      db.query(
+        'UPDATE cola_cancion SET posicion = posicion + 1 WHERE establecimiento_id = ? AND status != "played"',
+        [establecimientoId],
+        (err, result) => {
+          if (err) {
+            console.error('Error shifting queue positions:', err);
+            resolve(false);
+            return;
+          }
+          console.log(`Shifted ${result.affectedRows} queue positions`);
+          resolve(true);
         }
       );
     });
