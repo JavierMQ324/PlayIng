@@ -11,6 +11,7 @@ router.get('/genres/:genre/tracks', MusicaController.getTracksByGenre);
 router.get('/queue/:establecimientoId', MusicaController.getQueue);
 router.post('/queue', MusicaController.addToQueue);
 router.put('/queue/:id/position', MusicaController.updateQueuePosition);
+router.put('/queue/:id/status', MusicaController.updateQueueStatus);
 router.delete('/queue/:id', MusicaController.removeFromQueue);
 router.get('/playing/:establecimientoId', MusicaController.getCurrentPlaying);
 router.post('/play-next', MusicaController.playNext);

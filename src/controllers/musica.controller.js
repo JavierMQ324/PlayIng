@@ -445,6 +445,47 @@ class MusicaController {
     }
   }
 
+  // Actualizar status de una canción en la cola
+  static async updateQueueStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!['pending', 'playing', 'skipped', 'played'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid status. Must be: pending, playing, skipped, or played'
+        });
+      }
+
+      db.query(
+        'UPDATE cola_cancion SET status = ? WHERE id = ?',
+        [status, id],
+        (err, result) => {
+          if (err) {
+            console.error('Error updating queue status:', err);
+            res.status(500).json({
+              success: false,
+              error: 'Failed to update queue status'
+            });
+          } else {
+            res.json({
+              success: true,
+              message: 'Queue status updated successfully'
+            });
+          }
+        }
+      );
+
+    } catch (error) {
+      console.error('Error updating queue status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update queue status'
+      });
+    }
+  }
+
   // Obtener canción actualmente reproduciéndose
   static async getCurrentPlaying(req, res) {
     try {
