@@ -85,7 +85,6 @@ app.get('/', (req, res) => {
         'GET /api/spotify/credentials/:userId': 'Obtener credenciales de Spotify del usuario',
         'POST /api/spotify/refresh/:userId': 'Refrescar token de acceso de Spotify',
         'GET /api/spotify/search/:userId': 'Buscar canciones en Spotify',
-        'GET /api/spotify/playback/:userId': 'Obtener estado de reproducción actual',
         'DELETE /api/spotify/disconnect/:userId': 'Desconectar cuenta de Spotify'
       }
     }

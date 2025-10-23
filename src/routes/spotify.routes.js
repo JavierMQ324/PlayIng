@@ -16,7 +16,6 @@ router.get('/credentials/:userId', authenticateUser, SpotifyController.getCreden
 router.get('/debug/:userId', authenticateUser, SpotifyController.debugCredentials);
 router.post('/refresh/:userId', authenticateUser, SpotifyController.refreshAccessToken);
 router.get('/search/:userId', authenticateUser, SpotifyController.searchTracks);
-router.get('/playback/:userId', authenticateUser, SpotifyController.getCurrentPlayback);
 router.delete('/disconnect/:userId', authenticateUser, SpotifyController.disconnect);
 
 module.exports = router;
