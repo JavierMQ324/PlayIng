@@ -518,6 +518,7 @@ class MusicaColaController {
       `SELECT 
         hr.id_historial,
         hr.cancion_id,
+        hr.usuario_id,
         hr.reproducida_en,
         hr.completada,
         c.spotify_id,
@@ -550,6 +551,7 @@ class MusicaColaController {
           history: history.map(item => ({
             id_historial: item.id_historial,
             cancion_id: item.cancion_id,
+            usuario_id: item.usuario_id,
             reproducida_en: item.reproducida_en,
             completada: item.completada,
             spotify_id: item.spotify_id,
