@@ -7,15 +7,16 @@ const MusicaColaController = require('../controllers/musica-cola.controller');
 router.get('/search', MusicaController.searchTracks);
 router.get('/genres', MusicaController.searchGenres);
 router.get('/genres/:genre/tracks', MusicaController.getTracksByGenre);
+router.get('/artists/:artistId/tracks', MusicaController.getTracksByArtist);
 
 // Cola de canciones
 router.post('/queue', MusicaColaController.addToQueue);
-router.post('/queue/play-now', MusicaColaController.addToQueueAndPlayNow); // ✅ NUEVO: Reproducir inmediatamente
+router.post('/queue/play-now', MusicaColaController.addToQueueAndPlayNow); 
 router.get('/queue', MusicaColaController.getQueue);
 router.get('/queue/current-playing', MusicaColaController.getCurrentPlaying);
 router.delete('/queue/:colaId', MusicaColaController.removeFromQueue);
 router.patch('/queue/:colaId/status', MusicaColaController.updateQueueStatus);
-router.patch('/queue/reorder', MusicaColaController.reorderQueue); // ✅ NUEVO: Reordenar cola
+router.patch('/queue/reorder', MusicaColaController.reorderQueue); 
 router.post('/queue/set-playing', MusicaColaController.setCurrentPlaying);
 router.post('/queue/:colaId/move-to-history', MusicaColaController.moveToHistory);
 
