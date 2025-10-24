@@ -1,6 +1,64 @@
 const db = require('../db');
 
 class MusicaColaController {
+  // 🗑️ Función auxiliar para limpiar canciones antiguas (mantener máximo 200)
+  static cleanupOldSongs(callback) {
+    console.log('🧹 Checking if cleanup is needed...');
+    
+    // Verificar cuántas canciones hay en total
+    db.query(
+      'SELECT COUNT(*) as total FROM canciones',
+      [],
+      (err, result) => {
+        if (err) {
+          console.error('Error counting songs:', err);
+          return callback(err);
+        }
+        
+        const totalCanciones = result[0].total;
+        console.log(`📊 Total songs in database: ${totalCanciones}`);
+        
+        if (totalCanciones <= 200) {
+          console.log('✅ No cleanup needed (under 200 songs)');
+          return callback(null);
+        }
+        
+        const songsToDelete = totalCanciones - 150; // Dejar espacio para 50 más
+        console.log(`🗑️ Need to delete ${songsToDelete} old songs`);
+        
+        // Eliminar canciones que NO estén en:
+        // 1. La cola actual
+        // 2. El historial reciente (últimos 100)
+        db.query(
+          `DELETE FROM canciones 
+           WHERE id_cancion NOT IN (
+             SELECT DISTINCT cancion_id FROM cola_cancion
+           )
+           AND id_cancion NOT IN (
+             SELECT cancion_id FROM (
+               SELECT DISTINCT cancion_id 
+               FROM historial_reproduccion 
+               ORDER BY reproducida_en DESC 
+               LIMIT 100
+             ) AS recent_history
+           )
+           ORDER BY id_cancion ASC
+           LIMIT ?`,
+          [songsToDelete],
+          (err, result) => {
+            if (err) {
+              console.error('Error deleting old songs:', err);
+              return callback(err);
+            }
+            
+            console.log(`✅ Deleted ${result.affectedRows} old songs`);
+            callback(null);
+          }
+        );
+      }
+    );
+  }
+
   // ✅ Función auxiliar para renumerar las posiciones de la cola
   static reorderQueuePositions(establecimientoId, callback) {
     console.log(`Reordering queue positions for establecimiento: ${establecimientoId}`);
@@ -137,7 +195,16 @@ class MusicaColaController {
 
               cancionId = result.insertId;
               console.log('New song inserted with id:', cancionId);
-              insertToQueue(cancionId);
+              
+              // 🧹 Limpiar canciones antiguas después de insertar una nueva
+              MusicaColaController.cleanupOldSongs((cleanupErr) => {
+                if (cleanupErr) {
+                  console.error('Error during cleanup (non-critical):', cleanupErr);
+                  // No retornamos error porque la canción ya se insertó correctamente
+                }
+                
+                insertToQueue(cancionId);
+              });
             }
           );
         }
@@ -709,7 +776,16 @@ class MusicaColaController {
 
               cancionId = result.insertId;
               console.log('New song inserted with id:', cancionId);
-              insertToQueueAndPlay(cancionId);
+              
+              // 🧹 Limpiar canciones antiguas después de insertar una nueva
+              MusicaColaController.cleanupOldSongs((cleanupErr) => {
+                if (cleanupErr) {
+                  console.error('Error during cleanup (non-critical):', cleanupErr);
+                  // No retornamos error porque la canción ya se insertó correctamente
+                }
+                
+                insertToQueueAndPlay(cancionId);
+              });
             }
           );
         }
