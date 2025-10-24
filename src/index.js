@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(cors({
   origin: true, // Permitir todos los orígenes temporalmente
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
