@@ -26,6 +26,8 @@ const establecimientosRoutes = require('./routes/establecimientos.routes');
 const spotifyRoutes = require('./routes/spotify.routes');
 const spotifyEstablecimientoRoutes = require('./routes/spotify-establecimiento.routes');
 const musicaRoutes = require('./routes/musica.routes');
+const filtrosRoutes = require('./routes/filtros.routes');
+const configuracionRoutes = require('./routes/configuracion.routes');
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -39,6 +41,8 @@ app.use('/api/establecimientos', establecimientosRoutes);
 app.use('/api/spotify', spotifyRoutes);
 app.use('/api/spotify-establecimiento', spotifyEstablecimientoRoutes);
 app.use('/api/musica', musicaRoutes);
+app.use('/api/filtros', filtrosRoutes);
+app.use('/api/configuracion', configuracionRoutes);
 
 // Ruta de callback para OAuth móvil
 app.get('/auth/callback', (req, res) => {

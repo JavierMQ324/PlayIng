@@ -115,20 +115,212 @@ class MusicaColaController {
 
     console.log(`Adding song to queue: ${titulo} by ${artista}`);
 
-    // Primero, verificar si la canción ya existe en la tabla canciones
+    // Verificar el rol del usuario
     db.query(
-      'SELECT id_cancion FROM canciones WHERE spotify_id = ?',
-      [spotify_id],
-      (err, existingCancion) => {
+      'SELECT roll FROM usuarios WHERE id_user = ?',
+      [usuarioId],
+      (err, userResult) => {
         if (err) {
-          console.error('Error checking existing song:', err);
+          console.error('Error checking user role:', err);
           return res.status(500).json({
             success: false,
             error: 'Failed to add song to queue'
           });
         }
 
-        let cancionId;
+        if (userResult.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Usuario no encontrado'
+          });
+        }
+
+        const userRole = userResult[0].roll;
+        console.log(`User role: ${userRole}`);
+
+        // Si el usuario es cliente, verificar filtros y límites
+        if (userRole === 'cliente') {
+          console.log('Checking filters and limits for cliente user...');
+          
+          // Verificar si la canción, artista o género están bloqueados
+          const checkFilterQuery = `
+            SELECT tipo, valor, nombre_display 
+            FROM filtros 
+            WHERE establecimiento_id = ? 
+            AND (
+              (tipo = 'cancion' AND valor = ?) OR
+              (tipo = 'artista' AND valor = ?) OR
+              (tipo = 'genero' AND valor = ?)
+            )
+            LIMIT 1
+          `;
+
+          db.query(
+            checkFilterQuery,
+            [establecimientoId, spotify_id, artista, genero || ''],
+            (err, filtros) => {
+              if (err) {
+                console.error('Error checking filters:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to check filters'
+                });
+              }
+
+              if (filtros.length > 0) {
+                const filtro = filtros[0];
+                console.log(`Song blocked by ${filtro.tipo}: ${filtro.nombre_display}`);
+                
+                return res.status(403).json({
+                  success: false,
+                  error: 'Esta canción está bloqueada',
+                  blocked: true,
+                  reason: {
+                    tipo: filtro.tipo,
+                    valor: filtro.valor,
+                    nombre: filtro.nombre_display
+                  }
+                });
+              }
+
+              // No hay filtros, verificar límites de configuración
+              console.log('No filters found, checking configuration limits');
+              checkConfigurationLimits();
+            }
+          );
+        } else {
+          // Es admin, puede agregar sin restricciones
+          console.log('Admin user, skipping filter and limit checks');
+          proceedToAddSong();
+        }
+
+        function checkConfigurationLimits() {
+          // Obtener configuración del establecimiento
+          db.query(
+            'SELECT limite_reproduccion_cancion, limite_peticiones_usuario_hora FROM establecimientos WHERE id_establecimiento = ?',
+            [establecimientoId],
+            (err, configResult) => {
+              if (err) {
+                console.error('Error getting configuration:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to check limits'
+                });
+              }
+
+              if (configResult.length === 0) {
+                return res.status(404).json({
+                  success: false,
+                  error: 'Establecimiento no encontrado'
+                });
+              }
+
+              const { limite_reproduccion_cancion, limite_peticiones_usuario_hora } = configResult[0];
+              console.log(`Config - Song limit: ${limite_reproduccion_cancion}, User limit: ${limite_peticiones_usuario_hora}`);
+
+              // Verificar límite de reproducción de canción
+              if (limite_reproduccion_cancion && limite_reproduccion_cancion !== 'sin_limite') {
+                const horasAtras = limite_reproduccion_cancion === '1_hora' ? 1 : 2;
+                
+                db.query(
+                  `SELECT COUNT(*) as count FROM historial_reproduccion hr
+                   INNER JOIN canciones c ON hr.cancion_id = c.id_cancion
+                   WHERE c.spotify_id = ? 
+                   AND hr.establecimiento_id = ?
+                   AND hr.reproducida_en >= DATE_SUB(NOW(), INTERVAL ? HOUR)`,
+                  [spotify_id, establecimientoId, horasAtras],
+                  (err, historyResult) => {
+                    if (err) {
+                      console.error('Error checking song play history:', err);
+                      return res.status(500).json({
+                        success: false,
+                        error: 'Failed to check song limits'
+                      });
+                    }
+
+                    if (historyResult[0].count > 0) {
+                      const mensaje = limite_reproduccion_cancion === '1_hora' 
+                        ? 'Esta canción ya fue reproducida en la última hora'
+                        : 'Esta canción ya fue reproducida en las últimas 2 horas';
+                      
+                      return res.status(429).json({
+                        success: false,
+                        error: mensaje,
+                        limitType: 'song_play_limit'
+                      });
+                    }
+
+                    // Verificar límite de peticiones por usuario
+                    checkUserRequestLimit(limite_peticiones_usuario_hora);
+                  }
+                );
+              } else {
+                // Sin límite de reproducción, verificar solo límite de usuario
+                checkUserRequestLimit(limite_peticiones_usuario_hora);
+              }
+            }
+          );
+        }
+
+        function checkUserRequestLimit(limite_peticiones_usuario_hora) {
+          if (!limite_peticiones_usuario_hora || limite_peticiones_usuario_hora === 0) {
+            // Sin límite de peticiones por usuario
+            console.log('No user request limit, proceeding to add song');
+            proceedToAddSong();
+            return;
+          }
+
+          // Contar cuántas canciones ha agregado el usuario en la última hora
+          db.query(
+            `SELECT COUNT(*) as count FROM cola_cancion
+             WHERE anadido_por = ?
+             AND establecimiento_id = ?
+             AND agregada_en >= DATE_SUB(NOW(), INTERVAL 1 HOUR)`,
+            [usuarioId, establecimientoId],
+            (err, userRequestResult) => {
+              if (err) {
+                console.error('Error checking user request history:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to check user limits'
+                });
+              }
+
+              const userRequestCount = userRequestResult[0].count;
+              console.log(`User has requested ${userRequestCount} songs in the last hour (limit: ${limite_peticiones_usuario_hora})`);
+
+              if (userRequestCount >= limite_peticiones_usuario_hora) {
+                return res.status(429).json({
+                  success: false,
+                  error: `Has alcanzado el límite de ${limite_peticiones_usuario_hora} canciones por hora`,
+                  limitType: 'user_request_limit',
+                  currentCount: userRequestCount,
+                  limit: limite_peticiones_usuario_hora
+                });
+              }
+
+              // Todas las verificaciones pasaron, agregar la canción
+              console.log('All limits passed, proceeding to add song');
+              proceedToAddSong();
+            }
+          );
+        }
+
+        function proceedToAddSong() {
+          // Primero, verificar si la canción ya existe en la tabla canciones
+          db.query(
+            'SELECT id_cancion FROM canciones WHERE spotify_id = ?',
+            [spotify_id],
+            (err, existingCancion) => {
+              if (err) {
+                console.error('Error checking existing song:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to add song to queue'
+                });
+              }
+
+              let cancionId;
 
         const insertToQueue = (cancionId) => {
           // Obtener la posición actual máxima en la cola para este establecimiento
@@ -205,6 +397,9 @@ class MusicaColaController {
                 
                 insertToQueue(cancionId);
               });
+            }
+          );
+        }
             }
           );
         }

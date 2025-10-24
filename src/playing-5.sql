@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Oct 19, 2025 at 05:19 AM
+-- Generation Time: Oct 24, 2025 at 09:11 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.0.28
 
@@ -40,6 +40,72 @@ CREATE TABLE `canciones` (
   `preview_url` varchar(500) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `canciones`
+--
+
+INSERT INTO `canciones` (`id_cancion`, `spotify_id`, `titulo`, `artista`, `album`, `duracion`, `creada_en`, `imagen_url`, `genero`, `preview_url`) VALUES
+(656, '6uroNiDEDd0xFLiri0aQNk', 'Triple Lavada', 'Esau Ortiz', 'Triple Lavada', 165, '2025-10-24 00:42:22', 'https://i.scdn.co/image/ab67616d0000b273c4bae404f4bbdd3272717a2b', 'pop', NULL),
+(657, '0BxE4FqsDD1Ot4YuBXwAPp', '505', 'Arctic Monkeys', 'Favourite Worst Nightmare', 253, '2025-10-24 00:42:30', 'https://i.scdn.co/image/ab67616d0000b273b1f8da74f225fa1225cdface', 'rock', NULL),
+(658, '19CmuECYssqkPWANF4nLWM', 'Para No Verte Más', 'La Mosca', 'Visperas De Carnaval', 191, '2025-10-24 00:42:32', 'https://i.scdn.co/image/ab67616d0000b27360fc79eea7acba5248619f82', 'rock', NULL),
+(659, '2LsbizbOeNa4x6qsi2jAMb', 'La flaca', 'Jarabe De Palo', 'La Flaca', 261, '2025-10-24 00:42:33', 'https://i.scdn.co/image/ab67616d0000b27347a83522c634e84f937a897e', 'rock', NULL),
+(660, '7vcDJCAO356RYkCfiUozmE', 'Maldito duende', 'Heroes Del Silencio', 'Senderos De Traición - Edición Especial', 253, '2025-10-24 00:42:34', 'https://i.scdn.co/image/ab67616d0000b27349a719f6078c1e3165c9c830', 'rock', NULL),
+(661, '2rYjkYQWpn66nf5Ihk7SHJ', 'Ángel', 'Elefante', 'Elefante', 289, '2025-10-24 00:42:35', 'https://i.scdn.co/image/ab67616d0000b273033b8c6b300fb711d4d7b499', 'rock', NULL),
+(662, '1cOboCuWYI2osTOfolMRS6', 'Tu Boda', 'Oscar Maydon', 'Tu Boda', 225, '2025-10-24 00:43:52', 'https://i.scdn.co/image/ab67616d0000b273b51d9a74d356d785cce9dea9', 'pop', NULL),
+(663, '5m6bsa7qhZXjSDDqwRRfTD', 'Pasta', 'Los Dareyes De La Sierra', 'Pasta', 194, '2025-10-24 00:43:56', 'https://i.scdn.co/image/ab67616d0000b27387da72ee99e3fe6436fefb08', 'pop', NULL),
+(664, '1PREzVLuDT6PSE9sej4wnV', 'COQUETA', 'Fuerza Regida', 'MALA MÍA', 241, '2025-10-24 00:43:57', 'https://i.scdn.co/image/ab67616d0000b273d4cef83f06fc615fe94aeaf5', 'pop', NULL),
+(665, '2QeQNF182V61Im0QpjdVta', 'Pornography', 'Travis Scott', 'Rodeo', 231, '2025-10-24 00:51:11', 'https://i.scdn.co/image/ab67616d0000b2736cfd9a7353f98f5165ea6160', NULL, NULL),
+(666, '6wsqVwoiVH2kde4k4KKAFU', 'I KNOW ?', 'Travis Scott', 'UTOPIA', 211, '2025-10-24 00:51:35', 'https://i.scdn.co/image/ab67616d0000b273881d8d8378cd01099babcd44', NULL, NULL),
+(667, '4jvjzW7Hm0yK4LvvE0Paz9', 'Falling Down - Bonus Track', 'Lil Peep', 'Come Over When You\'re Sober, Pt. 2', 196, '2025-10-24 00:51:47', 'https://i.scdn.co/image/ab67616d0000b27355e36b0dc5b0ef008fc85319', NULL, NULL),
+(668, '68lqh2AjW3fgVAmQwhnAY9', 'Gucci Gang', 'Lil Pump', 'New Rap HITS 2023', 124, '2025-10-24 10:19:29', 'https://i.scdn.co/image/ab67616d0000b273625ca110e25f415319cea77c', 'hip-hop', NULL),
+(669, '70ATm56tH7OrQ1zurYssz0', 'I Need A Doctor', 'Dr. Dre', 'I Need A Doctor', 283, '2025-10-24 10:19:50', 'https://i.scdn.co/image/ab67616d0000b273d27f8a33b8a8c0417cdca53f', NULL, NULL),
+(670, '43ZyHQITOjhciSUUNPVRHc', 'Gucci Gang', 'Lil Pump', 'Lil Pump', 124, '2025-10-24 10:20:21', 'https://i.scdn.co/image/ab67616d0000b273d52ef190ae5253eb2c3c764c', NULL, NULL),
+(671, '0gdGdUIIXUH3WSLGeXXWw0', 'Elementary', 'Lil Pump', 'Elementary', 92, '2025-10-24 10:20:36', 'https://i.scdn.co/image/ab67616d0000b273d875f042678f1a5406461ff7', NULL, NULL),
+(672, '6Jo3N3nhJq3hyVWkkwZmyC', 'Watch This - ARIZONATEARS Pluggnb Remix', 'Lil Uzi Vert', 'One Hour of Rap', 163, '2025-10-24 10:23:30', 'https://i.scdn.co/image/ab67616d0000b2733998510bf728b73cc30f5874', 'hip-hop', NULL),
+(673, '7i9763l5SSfOnqZ35VOcfy', 'Heavydirtysoul', 'Twenty One Pilots', 'Blurryface', 234, '2025-10-24 10:23:56', 'https://i.scdn.co/image/ab67616d0000b2732df0d98a423025032d0db1f7', 'hip-hop', NULL),
+(674, '4Oyl6oYSNeeZZP0OAxPVaU', 'Message Man', 'Twenty One Pilots', 'Blurryface', 240, '2025-10-24 10:29:48', 'https://i.scdn.co/image/ab67616d0000b2732df0d98a423025032d0db1f7', NULL, NULL),
+(675, '5L3ecxQnQ9qTBmnLQiwf0C', 'K-POP', 'Travis Scott', 'K-POP', 185, '2025-10-24 10:35:10', 'https://i.scdn.co/image/ab67616d0000b273893489768de0c42b4d217b82', NULL, NULL),
+(676, '4At5UqkhN2soNreIhYdx5X', 'Madrid', 'Natanael Cano', 'NataKong', 201, '2025-10-24 10:43:07', 'https://i.scdn.co/image/ab67616d0000b273e86670a75a657f1c7b492a9f', NULL, NULL),
+(677, '6MOjqs7ngSnZz3J5GZLAfm', 'Arriba', 'Natanael Cano', 'Arriba', 174, '2025-10-24 10:48:56', 'https://i.scdn.co/image/ab67616d0000b273df7daf33626eb98f1a2a96f9', NULL, NULL),
+(678, '5mCPDVBb16L4XQwDdbRUpz', 'Passionfruit', 'Drake', 'More Life', 298, '2025-10-24 10:56:06', 'https://i.scdn.co/image/ab67616d0000b2734f0fd9dad63977146e685700', NULL, NULL),
+(679, '6DCZcSspjsKoFjzjrWoCdn', 'God\'s Plan', 'Drake', 'Scorpion', 198, '2025-10-24 10:56:13', 'https://i.scdn.co/image/ab67616d0000b273f907de96b9a4fbc04accc0d5', NULL, NULL),
+(680, '2u9S9JJ6hTZS3Vf22HOZKg', 'NOKIA', 'Drake', '$ome $exy $ongs 4 U', 241, '2025-10-24 10:56:15', 'https://i.scdn.co/image/ab67616d0000b273cc392813bfd8f63d4d5f4a95', NULL, NULL),
+(681, '6LxSe8YmdPxy095Ux6znaQ', 'Headlines', 'Drake', 'Take Care (Deluxe)', 235, '2025-10-24 10:56:17', 'https://i.scdn.co/image/ab67616d0000b273c7ea04a9b455e3f68ef82550', NULL, NULL),
+(682, '0l0vcZMU7AOeQmUIREoI2U', 'Qué Pasaría...', 'Rauw Alejandro', 'Cosa Nuestra', 191, '2025-10-24 10:58:38', 'https://i.scdn.co/image/ab67616d0000b273ed432d7df981360768dd5856', NULL, NULL),
+(683, '59D4DOkspUbWyMmbAPQkxZ', 'VOY A LLeVARTE PA PR', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 156, '2025-10-24 10:58:58', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(684, '5xAikCeFXqHpVUuRKxBg4V', 'Cartier', 'Xavi', 'Cartier', 186, '2025-10-24 11:00:03', 'https://i.scdn.co/image/ab67616d0000b273d48f28b27f3e12b83c0a89d1', 'pop', NULL),
+(685, '7iQXYTyuG13aoeHxGG28Nh', 'PERRO NEGRO', 'Bad Bunny', 'nadie sabe lo que va a pasar mañana', 162, '2025-10-24 11:04:20', 'https://i.scdn.co/image/ab67616d0000b2732ea1f035463d11e1fc3b193d', NULL, NULL),
+(686, '54ELExv56KCAB4UP9cOCzC', 'Gato de Noche', 'Ñengo Flow', 'Gato de Noche', 227, '2025-10-24 11:08:07', 'https://i.scdn.co/image/ab67616d0000b273ed132404686f567c8f793058', NULL, NULL),
+(687, '2lTm559tuIvatlT1u0JYG2', 'BAILE INoLVIDABLE', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 367, '2025-10-24 11:21:32', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(688, '0pqnGHJpmpxLKifKRmU6WP', 'Believer', 'Imagine Dragons', 'Evolve', 204, '2025-10-24 11:23:28', 'https://i.scdn.co/image/ab67616d0000b2735675e83f707f1d7271e5cf8a', NULL, NULL),
+(689, '1Ntj0hZfncXCQ5hij7igIE', 'Demons', 'Imagine Dragons', 'Night Visions (Deluxe)', 175, '2025-10-24 11:23:30', 'https://i.scdn.co/image/ab67616d0000b273a8f95e7f840c11edfa6cc3bd', NULL, NULL),
+(690, '58rFzMvW9kxNwMtGTgBQoP', 'Radioactive', 'Imagine Dragons', 'Night Visions (Deluxe)', 186, '2025-10-24 11:23:32', 'https://i.scdn.co/image/ab67616d0000b273a8f95e7f840c11edfa6cc3bd', NULL, NULL),
+(691, '6Qn5zhYkTa37e91HC1D7lb', 'Whatever It Takes', 'Imagine Dragons', 'Evolve', 201, '2025-10-24 11:25:44', 'https://i.scdn.co/image/ab67616d0000b2735675e83f707f1d7271e5cf8a', NULL, NULL),
+(692, '3DK6m7It6Pw857FcQftMds', 'Runaway', 'Kanye West', 'My Beautiful Dark Twisted Fantasy', 547, '2025-10-24 11:27:22', 'https://i.scdn.co/image/ab67616d0000b273d9194aa18fa4c9362b47464f', NULL, NULL),
+(693, '18VSMNO7ayjRDTQjnSz8N7', 'REM', 'HUMBE', 'REM', 219, '2025-10-24 11:33:29', 'https://i.scdn.co/image/ab67616d0000b273e077f71f46414e62cca8e1d5', NULL, NULL),
+(694, '4WefXOf8I4gMjdj2kBJgkl', 'Patadas de Ahogado', 'LATIN MAFIA', 'Patadas de Ahogado', 224, '2025-10-24 11:34:52', 'https://i.scdn.co/image/ab67616d0000b273f9513b3a82f1058891f4b169', NULL, NULL),
+(695, '3sK8wGT43QFpWrvNQsrQya', 'DtMF', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 237, '2025-10-24 11:53:32', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(696, '6J5kc12BW5HuP3d7C3vvx8', 'EoO', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 204, '2025-10-24 11:53:34', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(697, '7d6yK8v8J484SWH5prIQiE', 'VeLDÁ', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 235, '2025-10-24 11:53:43', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(698, '5TFD2bmFKGhoCRbX61nXY5', 'NUEVAYoL', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 183, '2025-10-24 11:53:44', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(699, '4MUrUT38U98olfnyzMBCzm', 'KLOuFRENS', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 199, '2025-10-24 11:53:50', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(700, '4c2Pc0NrfkesPR0jff6q3F', 'KETU TeCRÉ', 'Bad Bunny', 'DeBÍ TiRAR MáS FOToS', 250, '2025-10-24 11:53:53', 'https://i.scdn.co/image/ab67616d0000b273bbd45c8d36e0e045ef640411', NULL, NULL),
+(701, '0fea68AdmYNygeTGI4RC18', 'LA CANCIÓN', 'J Balvin', 'OASIS', 242, '2025-10-24 11:53:56', 'https://i.scdn.co/image/ab67616d0000b2734891d9b25d8919448388f3bb', NULL, NULL),
+(702, '6C1RD7YQVvt3YQj0CmuTeu', 'Diles', 'Bad Bunny', 'Diles', 286, '2025-10-24 11:53:58', 'https://i.scdn.co/image/ab67616d0000b273f62aa1dd0b43f583418cd018', NULL, NULL),
+(703, '5qzLdvRViHUrRNdkpakG7C', 'BATICANO', 'Bad Bunny', 'nadie sabe lo que va a pasar mañana', 256, '2025-10-24 11:54:01', 'https://i.scdn.co/image/ab67616d0000b2732ea1f035463d11e1fc3b193d', NULL, NULL),
+(704, '1dm6z1fWB0cErMszU25dy2', 'Después de la Playa', 'Bad Bunny', 'Un Verano Sin Ti', 230, '2025-10-24 11:54:03', 'https://i.scdn.co/image/ab67616d0000b27349d694203245f241a1bcaa72', NULL, NULL),
+(705, '6Xom58OOXk2SoU711L2IXO', 'Moscow Mule', 'Bad Bunny', 'Un Verano Sin Ti', 245, '2025-10-24 11:54:04', 'https://i.scdn.co/image/ab67616d0000b27349d694203245f241a1bcaa72', NULL, NULL),
+(706, '6vh4S1z08AjGipGAEsV62e', 'EUROPA :)', 'Bad Bunny', 'nadie sabe lo que va a pasar mañana', 11, '2025-10-24 11:54:06', 'https://i.scdn.co/image/ab67616d0000b2732ea1f035463d11e1fc3b193d', NULL, NULL),
+(707, '09WAnxdBuebQopKhJT3oZS', 'TRELLAS', 'Bad Bunny', 'EL ÚLTIMO TOUR DEL MUNDO', 157, '2025-10-24 11:54:09', 'https://i.scdn.co/image/ab67616d0000b273005ee342f4eef2cc6e8436ab', NULL, NULL),
+(708, '4EJHKSnHENfjOxXWryyNtL', 'MÁS DE UNA CITA', 'Bad Bunny', 'LAS QUE NO IBAN A SALIR', 183, '2025-10-24 11:54:11', 'https://i.scdn.co/image/ab67616d0000b273ae879683217d488c39600092', NULL, NULL),
+(709, '4NqQaovM14WR2hNPMFxgjb', '25/8', 'Bad Bunny', 'YHLQMDLG', 243, '2025-10-24 12:26:26', 'https://i.scdn.co/image/ab67616d0000b273548f7ec52da7313de0c5e4a0', NULL, NULL),
+(710, '4r9jkMEnArtWGH2rL2FZl0', 'A Tu Merced', 'Bad Bunny', 'YHLQMDLG', 175, '2025-10-24 12:26:28', 'https://i.scdn.co/image/ab67616d0000b273548f7ec52da7313de0c5e4a0', NULL, NULL),
+(711, '2DhNdoHxavs7Qtf5MnhZD0', 'EN CASITA', 'Bad Bunny', 'LAS QUE NO IBAN A SALIR', 176, '2025-10-24 12:26:30', 'https://i.scdn.co/image/ab67616d0000b273ae879683217d488c39600092', NULL, NULL),
+(712, '2CoMYp2uIKsT09nreEZnZn', 'BENDICIONES', 'Bad Bunny', 'LAS QUE NO IBAN A SALIR', 155, '2025-10-24 12:26:32', 'https://i.scdn.co/image/ab67616d0000b273ae879683217d488c39600092', NULL, NULL),
+(713, '3pm4XtcsRIFFtH2UErk62R', 'CANCIÓN CON YANDEL', 'Yandel', 'LAS QUE NO IBAN A SALIR', 209, '2025-10-24 12:26:34', 'https://i.scdn.co/image/ab67616d0000b273ae879683217d488c39600092', NULL, NULL),
+(714, '69vlMrzHwATKzupwNcUPyK', 'La Santa', 'Bad Bunny', 'YHLQMDLG', 206, '2025-10-24 12:26:37', 'https://i.scdn.co/image/ab67616d0000b273548f7ec52da7313de0c5e4a0', NULL, NULL),
+(715, '41wtwzCZkXwpnakmwJ239F', 'Si Veo a Tu Mamá', 'Bad Bunny', 'YHLQMDLG', 170, '2025-10-24 12:26:38', 'https://i.scdn.co/image/ab67616d0000b273548f7ec52da7313de0c5e4a0', NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -57,20 +123,15 @@ CREATE TABLE `cola_cancion` (
   `agregada_en` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- --------------------------------------------------------
-
 --
--- Table structure for table `configuracion_musica`
+-- Dumping data for table `cola_cancion`
 --
 
-CREATE TABLE `configuracion_musica` (
-  `id_config` int(11) NOT NULL,
-  `establecimiento_id` int(11) NOT NULL,
-  `limite_canciones_por_usuario_hora` int(11) DEFAULT 5,
-  `limite_reproducciones_cancion` int(11) DEFAULT NULL,
-  `creada_en` datetime DEFAULT current_timestamp(),
-  `actualizada_en` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+INSERT INTO `cola_cancion` (`id`, `cancion_id`, `anadido_por`, `establecimiento_id`, `posicion`, `status`, `creada_en`, `agregada_en`) VALUES
+(798, 701, 1, 4, 2, 'pending', '2025-10-24 11:53:56', '2025-10-24 11:53:56'),
+(808, 709, 1, 4, 4, 'pending', '2025-10-24 12:26:26', '2025-10-24 12:26:26'),
+(809, 710, 1, 4, 3, 'pending', '2025-10-24 12:26:28', '2025-10-24 12:26:28'),
+(811, 712, 1, 4, 1, 'playing', '2025-10-24 12:26:32', '2025-10-24 12:26:32');
 
 -- --------------------------------------------------------
 
@@ -98,22 +159,6 @@ INSERT INTO `establecimientos` (`id_establecimiento`, `admin_id`, `nombre`, `url
 -- --------------------------------------------------------
 
 --
--- Table structure for table `filtros_contenido`
---
-
-CREATE TABLE `filtros_contenido` (
-  `id_filtro` int(11) NOT NULL,
-  `establecimiento_id` int(11) NOT NULL,
-  `tipo` enum('cancion','genero') NOT NULL,
-  `spotify_id` varchar(100) DEFAULT NULL,
-  `genero` varchar(100) DEFAULT NULL,
-  `razon` varchar(250) DEFAULT NULL,
-  `creada_en` datetime DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `historial_reproduccion`
 --
 
@@ -125,6 +170,73 @@ CREATE TABLE `historial_reproduccion` (
   `reproducida_en` datetime DEFAULT current_timestamp(),
   `completada` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `historial_reproduccion`
+--
+
+INSERT INTO `historial_reproduccion` (`id_historial`, `cancion_id`, `establecimiento_id`, `usuario_id`, `reproducida_en`, `completada`) VALUES
+(132, 656, 4, 1, '2025-10-24 00:42:35', 1),
+(133, 661, 4, 1, '2025-10-24 00:42:42', 1),
+(134, 657, 4, 1, '2025-10-24 00:43:03', 1),
+(135, 658, 4, 1, '2025-10-24 00:43:52', 1),
+(136, 662, 4, 1, '2025-10-24 00:43:54', 1),
+(137, 656, 4, 1, '2025-10-24 00:43:56', 1),
+(138, 663, 4, 1, '2025-10-24 00:43:57', 1),
+(139, 664, 4, 1, '2025-10-24 00:48:01', 1),
+(140, 659, 4, 1, '2025-10-24 00:50:53', 1),
+(141, 660, 4, 1, '2025-10-24 00:51:14', 1),
+(142, 665, 4, 1, '2025-10-24 00:51:47', 1),
+(143, 667, 4, 1, '2025-10-24 10:19:11', 1),
+(144, 666, 4, 1, '2025-10-24 10:19:57', 1),
+(145, 668, 4, 1, '2025-10-24 10:20:21', 1),
+(146, 670, 4, 1, '2025-10-24 10:22:27', 1),
+(147, 669, 4, 1, '2025-10-24 10:23:30', 1),
+(148, 672, 4, 1, '2025-10-24 10:23:56', 1),
+(149, 673, 4, 1, '2025-10-24 10:27:52', 1),
+(150, 671, 4, 1, '2025-10-24 10:29:26', 1),
+(151, 674, 4, 1, '2025-10-24 10:35:10', 1),
+(152, 675, 4, 1, '2025-10-24 10:43:07', 1),
+(153, 676, 4, 1, '2025-10-24 10:48:56', 1),
+(154, 677, 4, 1, '2025-10-24 10:51:52', 1),
+(155, 678, 4, 1, '2025-10-24 10:56:13', 1),
+(156, 679, 4, 1, '2025-10-24 10:56:15', 1),
+(157, 680, 4, 1, '2025-10-24 10:56:17', 1),
+(158, 681, 4, 1, '2025-10-24 10:58:38', 1),
+(159, 682, 4, 1, '2025-10-24 11:01:47', 1),
+(160, 683, 4, 1, '2025-10-24 11:04:25', 1),
+(161, 684, 4, 1, '2025-10-24 11:07:33', 1),
+(162, 685, 4, 1, '2025-10-24 11:17:29', 1),
+(163, 686, 4, 1, '2025-10-24 11:21:18', 1),
+(164, 687, 4, 1, '2025-10-24 11:23:28', 1),
+(165, 688, 4, 1, '2025-10-24 11:23:30', 1),
+(166, 689, 4, 1, '2025-10-24 11:23:32', 1),
+(167, 690, 4, 1, '2025-10-24 11:25:44', 1),
+(168, 691, 4, 1, '2025-10-24 11:27:22', 1),
+(169, 692, 4, 1, '2025-10-24 11:33:29', 1),
+(170, 693, 4, 1, '2025-10-24 11:34:52', 1),
+(171, 694, 4, 1, '2025-10-24 11:34:57', 1),
+(172, 693, 4, 1, '2025-10-24 11:38:38', 1),
+(173, 695, 4, 1, '2025-10-24 11:53:44', 1),
+(174, 698, 4, 1, '2025-10-24 11:57:09', 1),
+(175, 656, 4, 1, '2025-10-24 11:57:47', 1),
+(176, 664, 4, 1, '2025-10-24 11:57:50', 1),
+(177, 696, 4, 1, '2025-10-24 11:57:55', 1),
+(178, 682, 4, 1, '2025-10-24 12:00:16', 1),
+(179, 697, 4, 1, '2025-10-24 12:03:25', 1),
+(180, 699, 4, 1, '2025-10-24 12:03:31', 1),
+(181, 698, 4, 1, '2025-10-24 12:04:04', 1),
+(182, 700, 4, 1, '2025-10-24 12:06:18', 1),
+(183, 682, 4, 1, '2025-10-24 12:08:41', 1),
+(184, 705, 4, 1, '2025-10-24 12:16:41', 1),
+(185, 703, 4, 1, '2025-10-24 12:25:48', 1),
+(186, 706, 4, 1, '2025-10-24 12:26:02', 1),
+(187, 704, 4, 1, '2025-10-24 12:44:36', 1),
+(188, 707, 4, 1, '2025-10-24 12:47:15', 1),
+(189, 683, 4, 1, '2025-10-24 13:04:26', 1),
+(190, 714, 4, 1, '2025-10-24 13:04:32', 1),
+(191, 715, 4, 1, '2025-10-24 13:07:25', 1),
+(192, 713, 4, 1, '2025-10-24 13:10:55', 1);
 
 -- --------------------------------------------------------
 
@@ -157,7 +269,7 @@ INSERT INTO `mesas` (`id_mesa`, `numero_mesa`, `qr_code`, `status`, `creado_en`,
 (313, '2', '{\"e\":4,\"m\":\"2\"}', 'libre', '2025-10-17 16:44:24', 4, 'data:image/png;base64,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'),
 (314, '3', '{\"e\":4,\"m\":\"3\"}', 'libre', '2025-10-17 16:44:24', 4, 'data:image/png;base64,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'),
 (315, '4', '{\"e\":4,\"m\":\"4\"}', 'libre', '2025-10-17 16:44:24', 4, 'data:image/png;base64,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'),
-(316, '5', '{\"e\":4,\"m\":\"5\"}', 'libre', '2025-10-18 17:02:28', 4, 'data:image/png;base64,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');
+(320, '5', '{\"e\":4,\"m\":\"5\"}', 'libre', '2025-10-23 14:00:27', 4, 'data:image/png;base64,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');
 
 -- --------------------------------------------------------
 
@@ -193,12 +305,29 @@ CREATE TABLE `spotify_credentials` (
   `actualizado_en` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `spotify_credentials`
+-- Table structure for table `spotify_establecimiento`
 --
 
-INSERT INTO `spotify_credentials` (`id`, `usuario_id`, `access_token`, `refresh_token`, `expires_at`, `scope`, `creado_en`, `actualizado_en`) VALUES
-(11, 1, 'BQCb5R9AYDdKYulgDAXqLFNh27SD1FpE6skoozHTSaGXYmdh7za1XKeHsAgVKDoPKmtnKUIPq4yCXLJbrl_zVmLJEjpEKJWog1xyH-DsNEbaQ5J_0KuF4xt_h7iotnPH2Rt4EgDKca5n4oeTECjAeoFwrt-Z0034A4mVOIPWSDM1VjVMguK5QRDp1laBGGGFmPqi09p6oIo4PYI5D79r62DB6cvR8rnQXexlOhIq_xfc3Nn3weAaqNNtqCKdIEhISzsjMG0324iuMA', 'AQAyNwxSyUM5Mh2Uq6lW5Z_u_-hm_VzmT4hoZYw1OHhY8wxiuxcYXwffzEoj91McsWkvijtN-xNTEneKjWiD7Rgw9CpG0_6KCybXru5wWLPiJitAyneYELrwXO0XOtfkbEM', '2025-10-18 21:10:32', 'streaming user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-email user-read-recently-played user-read-private', '2025-10-18 18:06:18', '2025-10-18 20:10:32');
+CREATE TABLE `spotify_establecimiento` (
+  `id` int(11) NOT NULL,
+  `establecimiento_id` int(11) NOT NULL,
+  `access_token` varchar(500) NOT NULL,
+  `refresh_token` varchar(500) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `scope` text NOT NULL,
+  `creado_en` datetime DEFAULT current_timestamp(),
+  `actualizado_en` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `spotify_establecimiento`
+--
+
+INSERT INTO `spotify_establecimiento` (`id`, `establecimiento_id`, `access_token`, `refresh_token`, `expires_at`, `scope`, `creado_en`, `actualizado_en`) VALUES
+(1, 4, 'BQArOs1XB4Sk5NDZ0crfsrc6GsIDw3aJkFh0mFs42_S2mMoyctBSIJklxJCszRdJM-4p_m8xa344KiBlr4wnJzMTwtRHs6Qr3yuZ6TTe42Abj0eA7NuNhNa1dsd_XRcwo5smL_dYTm8kOkiWIGwsXvo2QmaFyaY4dOiVORAmvC3hi-5nm0KsjL6ZPnplBUswUNUAa0Ia_nmcd0eLNhdaYxkYRJh4g6Re-HGyYTiJiVxdnJQweNVzL67crXU6I8sTXA28zsz7G0hOcA', 'AQDjmpE6I7iJSM0RUqxQn_i5e-MJE1rekaK4czSwwAaGALFt-bqgtCVih0DS7K2FT0P7WDsW_V56-e-Dhhj6xIM-1FakS_CaaCopyhofTS_gJ_MDyw8guXkOkKDIiPjexjk', '2025-10-24 14:02:10', 'streaming user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-email user-read-recently-played user-read-private', '2025-10-18 23:33:52', '2025-10-24 13:02:10');
 
 -- --------------------------------------------------------
 
@@ -261,25 +390,11 @@ ALTER TABLE `cola_cancion`
   ADD KEY `cola_cancion_establecimiento_fk` (`establecimiento_id`);
 
 --
--- Indexes for table `configuracion_musica`
---
-ALTER TABLE `configuracion_musica`
-  ADD PRIMARY KEY (`id_config`),
-  ADD UNIQUE KEY `establecimiento_id` (`establecimiento_id`);
-
---
 -- Indexes for table `establecimientos`
 --
 ALTER TABLE `establecimientos`
   ADD PRIMARY KEY (`id_establecimiento`),
   ADD KEY `admin_id` (`admin_id`);
-
---
--- Indexes for table `filtros_contenido`
---
-ALTER TABLE `filtros_contenido`
-  ADD PRIMARY KEY (`id_filtro`),
-  ADD KEY `establecimiento_id` (`establecimiento_id`);
 
 --
 -- Indexes for table `historial_reproduccion`
@@ -315,6 +430,13 @@ ALTER TABLE `spotify_credentials`
   ADD UNIQUE KEY `usuario_id` (`usuario_id`);
 
 --
+-- Indexes for table `spotify_establecimiento`
+--
+ALTER TABLE `spotify_establecimiento`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `establecimiento_id` (`establecimiento_id`);
+
+--
 -- Indexes for table `usuarios`
 --
 ALTER TABLE `usuarios`
@@ -339,19 +461,13 @@ ALTER TABLE `votos`
 -- AUTO_INCREMENT for table `canciones`
 --
 ALTER TABLE `canciones`
-  MODIFY `id_cancion` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_cancion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=716;
 
 --
 -- AUTO_INCREMENT for table `cola_cancion`
 --
 ALTER TABLE `cola_cancion`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `configuracion_musica`
---
-ALTER TABLE `configuracion_musica`
-  MODIFY `id_config` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=815;
 
 --
 -- AUTO_INCREMENT for table `establecimientos`
@@ -360,22 +476,16 @@ ALTER TABLE `establecimientos`
   MODIFY `id_establecimiento` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT for table `filtros_contenido`
---
-ALTER TABLE `filtros_contenido`
-  MODIFY `id_filtro` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `historial_reproduccion`
 --
 ALTER TABLE `historial_reproduccion`
-  MODIFY `id_historial` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_historial` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=193;
 
 --
 -- AUTO_INCREMENT for table `mesas`
 --
 ALTER TABLE `mesas`
-  MODIFY `id_mesa` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=317;
+  MODIFY `id_mesa` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=321;
 
 --
 -- AUTO_INCREMENT for table `ordenes`
@@ -388,6 +498,12 @@ ALTER TABLE `ordenes`
 --
 ALTER TABLE `spotify_credentials`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `spotify_establecimiento`
+--
+ALTER TABLE `spotify_establecimiento`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `usuarios`
@@ -414,22 +530,10 @@ ALTER TABLE `cola_cancion`
   ADD CONSTRAINT `cola_cancion_ibfk_2` FOREIGN KEY (`anadido_por`) REFERENCES `usuarios` (`id_user`) ON DELETE CASCADE;
 
 --
--- Constraints for table `configuracion_musica`
---
-ALTER TABLE `configuracion_musica`
-  ADD CONSTRAINT `config_establecimiento_fk` FOREIGN KEY (`establecimiento_id`) REFERENCES `establecimientos` (`id_establecimiento`) ON DELETE CASCADE;
-
---
 -- Constraints for table `establecimientos`
 --
 ALTER TABLE `establecimientos`
   ADD CONSTRAINT `establecimientos_admin_fk` FOREIGN KEY (`admin_id`) REFERENCES `usuarios` (`id_user`) ON DELETE CASCADE;
-
---
--- Constraints for table `filtros_contenido`
---
-ALTER TABLE `filtros_contenido`
-  ADD CONSTRAINT `filtros_establecimiento_fk` FOREIGN KEY (`establecimiento_id`) REFERENCES `establecimientos` (`id_establecimiento`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `historial_reproduccion`
@@ -457,6 +561,12 @@ ALTER TABLE `ordenes`
 --
 ALTER TABLE `spotify_credentials`
   ADD CONSTRAINT `spotify_credentials_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id_user`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `spotify_establecimiento`
+--
+ALTER TABLE `spotify_establecimiento`
+  ADD CONSTRAINT `spotify_establecimiento_fk` FOREIGN KEY (`establecimiento_id`) REFERENCES `establecimientos` (`id_establecimiento`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `usuarios`
