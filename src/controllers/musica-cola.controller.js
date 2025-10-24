@@ -717,6 +717,105 @@ class MusicaColaController {
     );
   }
 
+  // ✅ Reordenar cola - cambiar posición de una canción
+  static reorderQueue(req, res) {
+    const { cancionId, nuevaPosicion, establecimientoId } = req.body;
+
+    if (!cancionId || !nuevaPosicion || !establecimientoId) {
+      return res.status(400).json({
+        success: false,
+        error: 'cancionId, nuevaPosicion and establecimientoId are required'
+      });
+    }
+
+    console.log(`🔄 Reordering queue: moving song ${cancionId} to position ${nuevaPosicion}`);
+
+    // Obtener toda la cola actual
+    db.query(
+      'SELECT id, posicion FROM cola_cancion WHERE establecimiento_id = ? ORDER BY posicion ASC',
+      [establecimientoId],
+      (err, allSongs) => {
+        if (err) {
+          console.error('Error getting queue:', err);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to reorder queue'
+          });
+        }
+
+        // Encontrar la canción que se va a mover
+        const songToMoveIndex = allSongs.findIndex(s => s.id === cancionId);
+        if (songToMoveIndex === -1) {
+          return res.status(404).json({
+            success: false,
+            error: 'Song not found in queue'
+          });
+        }
+
+        const songToMove = allSongs[songToMoveIndex];
+        const posicionActual = songToMove.posicion;
+        
+        console.log(`📍 Moving from position ${posicionActual} to ${nuevaPosicion}`);
+        console.log(`📋 Current queue has ${allSongs.length} songs`);
+
+        // Encontrar el índice donde queremos insertar (basado en la posición objetivo)
+        const targetIndex = allSongs.findIndex(s => s.posicion === nuevaPosicion);
+        
+        if (targetIndex === -1) {
+          console.error('Target position not found');
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid target position'
+          });
+        }
+
+        console.log(`🎯 Target index in array: ${targetIndex}`);
+
+        // Remover la canción de su posición actual
+        allSongs.splice(songToMoveIndex, 1);
+        
+        // Insertar en la nueva posición
+        allSongs.splice(targetIndex, 0, songToMove);
+
+        console.log(`✅ New order (by song ID): [${allSongs.map(s => s.id).join(', ')}]`);
+
+        // Actualizar todas las posiciones en la base de datos
+        let completed = 0;
+        const totalUpdates = allSongs.length;
+        let hadError = false;
+
+        allSongs.forEach((song, index) => {
+          const newPosition = index + 1; // Las posiciones empiezan en 1
+          
+          db.query(
+            'UPDATE cola_cancion SET posicion = ? WHERE id = ?',
+            [newPosition, song.id],
+            (err) => {
+              if (err && !hadError) {
+                hadError = true;
+                console.error('Error updating position:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to reorder queue'
+                });
+              }
+              
+              completed++;
+              
+              if (completed === totalUpdates && !hadError) {
+                console.log(`✅ Queue reordered successfully! Updated ${completed} songs`);
+                res.json({
+                  success: true,
+                  message: 'Queue reordered successfully'
+                });
+              }
+            }
+          );
+        });
+      }
+    );
+  }
+
   // ✅ NUEVO: Obtener la canción actualmente en reproducción
   static getCurrentPlaying(req, res) {
     const { establecimientoId } = req.query;
