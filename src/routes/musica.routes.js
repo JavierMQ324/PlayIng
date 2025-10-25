@@ -20,6 +20,10 @@ router.patch('/queue/reorder', MusicaColaController.reorderQueue);
 router.post('/queue/set-playing', MusicaColaController.setCurrentPlaying);
 router.post('/queue/:colaId/move-to-history', MusicaColaController.moveToHistory);
 
+// Actualización de estado de reproducción (para sincronización en tiempo real)
+router.post('/playback/state', MusicaColaController.updatePlaybackState);
+router.post('/playback/progress', MusicaColaController.updatePlaybackProgress);
+
 // Historial
 router.get('/history', MusicaColaController.getHistory);
 

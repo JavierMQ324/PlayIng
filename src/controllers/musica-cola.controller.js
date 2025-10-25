@@ -354,6 +354,12 @@ class MusicaColaController {
 
                   console.log(`Song added to queue at position ${nextPosition}`);
 
+                  // 📡 Emitir evento de actualización de cola
+                  const socketService = req.app.get('socketService');
+                  if (socketService) {
+                    socketService.emitQueueUpdate(establecimientoId);
+                  }
+
                   res.json({
                     success: true,
                     message: 'Song added to queue successfully',
@@ -526,6 +532,12 @@ class MusicaColaController {
               console.error('Error reordering positions after removal:', err);
             }
 
+            // 📡 Emitir evento de actualización de cola
+            const socketService = req.app.get('socketService');
+            if (socketService) {
+              socketService.emitQueueUpdate(establecimientoId);
+            }
+
             res.json({
               success: true,
               message: 'Song removed from queue successfully'
@@ -582,6 +594,9 @@ class MusicaColaController {
     }
 
     console.log(`Setting current playing: ${colaId} for establecimiento: ${establecimientoId}`);
+    
+    // Obtener socketService del app
+    const socketService = req.app.get('socketService');
 
     // Primero, obtener todas las canciones con status "playing" en este establecimiento
     db.query(
@@ -669,10 +684,65 @@ class MusicaColaController {
                 }
 
                 console.log(`Set item ${colaId} as current playing`);
-                res.json({
-                  success: true,
-                  message: 'Current playing set successfully'
-                });
+                
+                // 📡 Obtener información de la canción y emitir evento de socket
+                db.query(
+                  `SELECT 
+                    cc.id,
+                    cc.cancion_id,
+                    cc.anadido_por,
+                    cc.posicion,
+                    cc.status,
+                    cc.agregada_en,
+                    c.spotify_id,
+                    c.titulo,
+                    c.artista,
+                    c.album,
+                    c.duracion,
+                    c.imagen_url,
+                    c.genero,
+                    c.preview_url,
+                    u.nombre as usuario_nombre
+                   FROM cola_cancion cc
+                   INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
+                   INNER JOIN usuarios u ON cc.anadido_por = u.id_user
+                   WHERE cc.id = ?`,
+                  [colaId],
+                  (err, trackInfo) => {
+                    if (!err && trackInfo && trackInfo.length > 0 && socketService) {
+                      const track = trackInfo[0];
+                      socketService.emitPlaybackUpdate(establecimientoId, {
+                        currentTrack: {
+                          id: track.id,
+                          cancion_id: track.cancion_id,
+                          spotify_id: track.spotify_id,
+                          titulo: track.titulo,
+                          artista: track.artista,
+                          album: track.album,
+                          duracion: track.duracion,
+                          imagen_url: track.imagen_url,
+                          genero: track.genero,
+                          preview_url: track.preview_url,
+                          usuario_nombre: track.usuario_nombre
+                        },
+                        isPlaying: true,
+                        position: 0
+                      });
+                      socketService.emitTrackStarted(establecimientoId, {
+                        titulo: track.titulo,
+                        artista: track.artista,
+                        album: track.album,
+                        imagen_url: track.imagen_url,
+                        duracion: track.duracion
+                      });
+                    }
+                    
+                    res.json({
+                      success: true,
+                      message: 'Current playing set successfully'
+                    });
+                  }
+                );
               });
             }
           );
@@ -1085,6 +1155,60 @@ class MusicaColaController {
         });
       }
     );
+  }
+
+  // ✅ Actualizar estado de reproducción (play/pause) y emitir evento
+  static updatePlaybackState(req, res) {
+    const { establecimientoId, isPlaying, position, duration, currentTrack } = req.body;
+
+    if (!establecimientoId || isPlaying === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'establecimientoId and isPlaying are required'
+      });
+    }
+
+    console.log(`Updating playback state for establecimiento ${establecimientoId}: isPlaying=${isPlaying}, position=${position}ms`);
+
+    // 📡 Emitir evento completo de estado (incluye posición, duración y track)
+    const socketService = req.app.get('socketService');
+    if (socketService) {
+      // Emitir actualización completa con toda la información
+      socketService.emitPlaybackUpdate(establecimientoId, {
+        currentTrack,
+        isPlaying,
+        position: position || 0,
+        duration: duration || 0
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Playback state updated'
+    });
+  }
+
+  // ✅ Actualizar progreso de reproducción y emitir evento
+  static updatePlaybackProgress(req, res) {
+    const { establecimientoId, position, duration } = req.body;
+
+    if (!establecimientoId || position === undefined || duration === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'establecimientoId, position and duration are required'
+      });
+    }
+
+    // 📡 Emitir evento de progreso (esto se puede llamar periódicamente)
+    const socketService = req.app.get('socketService');
+    if (socketService) {
+      socketService.emitPlaybackProgress(establecimientoId, position, duration);
+    }
+
+    res.json({
+      success: true,
+      message: 'Playback progress updated'
+    });
   }
 
   // ✅ NUEVO: Obtener la canción actualmente en reproducción

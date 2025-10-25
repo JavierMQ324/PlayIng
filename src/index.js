@@ -110,15 +110,25 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Mobile app URL: ${process.env.MOBILE_APP_URL || 'exp://localhost:8081'}`);
 });
 
-// Exponer io a controladores
+// Inicializar Socket Service
+const SocketService = require('./services/socket.service');
+const socketService = new SocketService(io);
+
+// Exponer io y socketService a controladores
 app.set('io', io);
+app.set('socketService', socketService);
 
 io.on('connection', (socket) => {
   socket.on('join_establecimiento', (establecimientoId) => {
     socket.join(`establecimiento:${establecimientoId}`);
   });
+  
   socket.on('join_user', (userId) => {
     socket.join(`user:${userId}`);
+  });
+  
+  socket.on('disconnect', () => {
+    // Cliente desconectado
   });
 });
 

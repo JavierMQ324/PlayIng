@@ -8,6 +8,7 @@ const {
   listMesas,
   deleteLastMesa,
   getMesaQr,
+  getMesaById,
   linkByQr,
   listClientes,
   leaveRestaurant,
@@ -21,6 +22,7 @@ router.post('/mesas', verifyToken, createMesa);
 router.get('/:id/mesas', verifyToken, listMesas);
 router.delete('/:id/mesas/ultima', verifyToken, deleteLastMesa);
 router.get('/mesas/:mesaId/qr', getMesaQr);
+router.get('/mesa/:mesaId', verifyToken, getMesaById);
 router.post('/qr/vincular', verifyToken, linkByQr);
 router.get('/:id/clientes', verifyToken, listClientes);
 router.post('/leave', verifyToken, leaveRestaurant);

@@ -286,6 +286,24 @@ function kickUsers(req, res) {
   });
 }
 
+// Obtener información de una mesa por su ID
+function getMesaById(req, res) {
+  ensureSchema();
+  const { mesaId } = req.params;
+  
+  if (!mesaId) {
+    return res.status(400).json({ error: 'mesaId es requerido' });
+  }
+
+  const sql = 'SELECT * FROM mesas WHERE id_mesa = ? LIMIT 1';
+  db.query(sql, [mesaId], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'DB error' });
+    if (!rows.length) return res.status(404).json({ error: 'Mesa no encontrada' });
+    
+    res.json({ success: true, mesa: rows[0] });
+  });
+}
+
 // Salir del restaurante: eliminar la relación mesa_id_activa del usuario cliente
 function leaveRestaurant(req, res) {
   const userId = req.user?.id;
@@ -316,6 +334,7 @@ module.exports = {
   listMesas,
   deleteLastMesa,
   getMesaQr,
+  getMesaById,
   linkByQr,
   listClientes,
   leaveRestaurant,
