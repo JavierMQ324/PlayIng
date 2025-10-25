@@ -69,7 +69,7 @@ class MusicaController {
   // Buscar canciones y artistas en Spotify API
   static async searchTracks(req, res) {
     try {
-      const { q, establecimientoId } = req.query;
+      const { q, establecimientoId, skipFilters } = req.query;
       
       if (!q) {
         return res.status(400).json({ 
@@ -78,7 +78,7 @@ class MusicaController {
         });
       }
 
-      console.log(`Searching tracks and artists for query: "${q}", establecimiento: ${establecimientoId}`);
+      console.log(`Searching tracks and artists for query: "${q}", establecimiento: ${establecimientoId}, skipFilters: ${skipFilters}`);
 
       // Obtener access token válido del establecimiento
       const accessToken = await SpotifyEstablecimientoController.getValidAccessToken(establecimientoId);
@@ -175,11 +175,11 @@ class MusicaController {
         if (searchSuccessful && (allTracks.length > 0 || allArtists.length > 0)) {
           console.log(`Successfully found ${allTracks.length} tracks and ${allArtists.length} artists for query: "${q}"`);
           
-          // Aplicar filtros de bloqueo si hay establecimientoId
+          // Aplicar filtros de bloqueo si hay establecimientoId y NO se solicita skip filters
           let filteredTracks = allTracks;
           let filteredArtists = allArtists;
           
-          if (establecimientoId) {
+          if (establecimientoId && skipFilters !== 'true') {
             try {
               const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
               filteredTracks = MusicaController.filterBlockedTracks(allTracks, filters);
@@ -188,6 +188,8 @@ class MusicaController {
             } catch (filterError) {
               console.error('Error applying filters, returning unfiltered results:', filterError);
             }
+          } else if (skipFilters === 'true') {
+            console.log('Skipping filters for admin/owner user');
           }
           
           res.json({ 
@@ -225,7 +227,7 @@ class MusicaController {
   // Obtener géneros disponibles
   static async searchGenres(req, res) {
     try {
-      const { establecimientoId } = req.query;
+      const { establecimientoId, skipFilters } = req.query;
       
       // Géneros populares de Spotify
       let genres = [
@@ -235,8 +237,8 @@ class MusicaController {
         'world', 'ambient', 'house', 'techno', 'dubstep', 'trap'
       ];
 
-      // Aplicar filtros de bloqueo si hay establecimientoId
-      if (establecimientoId) {
+      // Aplicar filtros de bloqueo si hay establecimientoId y NO se solicita skip filters
+      if (establecimientoId && skipFilters !== 'true') {
         try {
           const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
           
@@ -246,6 +248,8 @@ class MusicaController {
         } catch (filterError) {
           console.error('Error applying genre filters, returning all genres:', filterError);
         }
+      } else if (skipFilters === 'true') {
+        console.log('Skipping genre filters for admin/owner user');
       }
 
       res.json({ 
@@ -266,9 +270,9 @@ class MusicaController {
   static async getTracksByArtist(req, res) {
     try {
       const { artistId } = req.params;
-      const { establecimientoId } = req.query;
+      const { establecimientoId, skipFilters } = req.query;
 
-      console.log(`Getting tracks for artist: ${artistId}, establecimiento: ${establecimientoId}`);
+      console.log(`Getting tracks for artist: ${artistId}, establecimiento: ${establecimientoId}, skipFilters: ${skipFilters}`);
 
       // Obtener access token válido del establecimiento
       const accessToken = await SpotifyEstablecimientoController.getValidAccessToken(establecimientoId);
@@ -355,10 +359,10 @@ class MusicaController {
 
         console.log(`Successfully found ${allTracks.length} tracks for artist: ${artistId}`);
         
-        // Aplicar filtros de bloqueo si hay establecimientoId
+        // Aplicar filtros de bloqueo si hay establecimientoId y NO se solicita skip filters
         let filteredTracks = allTracks;
         
-        if (establecimientoId) {
+        if (establecimientoId && skipFilters !== 'true') {
           try {
             const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
             
@@ -383,6 +387,8 @@ class MusicaController {
           } catch (filterError) {
             console.error('Error applying filters, returning unfiltered results:', filterError);
           }
+        } else if (skipFilters === 'true') {
+          console.log('Skipping filters for admin/owner user');
         }
         
         res.json({
@@ -415,9 +421,9 @@ class MusicaController {
   static async getTracksByGenre(req, res) {
     try {
       const { genre } = req.params;
-      const { establecimientoId } = req.query;
+      const { establecimientoId, skipFilters } = req.query;
 
-      console.log(`Getting tracks for genre: ${genre}, establecimiento: ${establecimientoId}`);
+      console.log(`Getting tracks for genre: ${genre}, establecimiento: ${establecimientoId}, skipFilters: ${skipFilters}`);
 
       // Obtener access token válido del establecimiento
       const accessToken = await SpotifyEstablecimientoController.getValidAccessToken(establecimientoId);
@@ -494,10 +500,10 @@ class MusicaController {
         if (searchSuccessful && allTracks.length > 0) {
           console.log(`Successfully found ${allTracks.length} tracks for genre: ${genre}`);
           
-          // Aplicar filtros de bloqueo si hay establecimientoId
+          // Aplicar filtros de bloqueo si hay establecimientoId y NO se solicita skip filters
           let filteredTracks = allTracks;
           
-          if (establecimientoId) {
+          if (establecimientoId && skipFilters !== 'true') {
             try {
               const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
               
@@ -519,6 +525,8 @@ class MusicaController {
             } catch (filterError) {
               console.error('Error applying filters, returning unfiltered results:', filterError);
             }
+          } else if (skipFilters === 'true') {
+            console.log('Skipping filters for admin/owner user');
           }
           
           res.json({
