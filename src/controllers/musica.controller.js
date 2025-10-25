@@ -3,6 +3,69 @@ const db = require('../db');
 const SpotifyEstablecimientoController = require('./spotify-establecimiento.controller');
 
 class MusicaController {
+  // Función auxiliar para obtener bloqueos del establecimiento
+  static async getEstablecimientoFilters(establecimientoId) {
+    return new Promise((resolve, reject) => {
+      db.query(
+        'SELECT tipo, valor, nombre_display FROM filtros WHERE establecimiento_id = ?',
+        [establecimientoId],
+        (err, results) => {
+          if (err) {
+            console.error('Error fetching filters:', err);
+            return reject(err);
+          }
+          
+          // Organizar filtros por tipo
+          const filters = {
+            canciones: new Set(),    // Set de spotify_ids bloqueados
+            artistas: new Set(),     // Set de nombres de artistas bloqueados  
+            generos: new Set()       // Set de géneros bloqueados
+          };
+          
+          results.forEach(filtro => {
+            if (filtro.tipo === 'cancion') {
+              filters.canciones.add(filtro.valor);
+            } else if (filtro.tipo === 'artista') {
+              filters.artistas.add(filtro.nombre_display.toLowerCase());
+            } else if (filtro.tipo === 'genero') {
+              filters.generos.add(filtro.valor.toLowerCase());
+            }
+          });
+          
+          resolve(filters);
+        }
+      );
+    });
+  }
+
+  // Función auxiliar para filtrar canciones bloqueadas
+  static filterBlockedTracks(tracks, filters) {
+    return tracks.filter(track => {
+      // Verificar si la canción está bloqueada por ID
+      if (filters.canciones.has(track.spotify_id)) {
+        return false;
+      }
+      
+      // Verificar si el artista está bloqueado
+      if (track.artista && filters.artistas.has(track.artista.toLowerCase())) {
+        return false;
+      }
+      
+      // Verificar si el género está bloqueado
+      if (track.genero && filters.generos.has(track.genero.toLowerCase())) {
+        return false;
+      }
+      
+      return true;
+    });
+  }
+
+  // Función auxiliar para filtrar artistas bloqueados
+  static filterBlockedArtists(artists, filters) {
+    return artists.filter(artist => {
+      return !filters.artistas.has(artist.nombre.toLowerCase());
+    });
+  }
   // Buscar canciones y artistas en Spotify API
   static async searchTracks(req, res) {
     try {
@@ -112,12 +175,27 @@ class MusicaController {
         if (searchSuccessful && (allTracks.length > 0 || allArtists.length > 0)) {
           console.log(`Successfully found ${allTracks.length} tracks and ${allArtists.length} artists for query: "${q}"`);
           
+          // Aplicar filtros de bloqueo si hay establecimientoId
+          let filteredTracks = allTracks;
+          let filteredArtists = allArtists;
+          
+          if (establecimientoId) {
+            try {
+              const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
+              filteredTracks = MusicaController.filterBlockedTracks(allTracks, filters);
+              filteredArtists = MusicaController.filterBlockedArtists(allArtists, filters);
+              console.log(`After filtering: ${filteredTracks.length} tracks, ${filteredArtists.length} artists`);
+            } catch (filterError) {
+              console.error('Error applying filters, returning unfiltered results:', filterError);
+            }
+          }
+          
           res.json({ 
             success: true, 
-            tracks: allTracks,
-            artists: allArtists,
-            total: allTracks.length,
-            totalArtists: allArtists.length,
+            tracks: filteredTracks,
+            artists: filteredArtists,
+            total: filteredTracks.length,
+            totalArtists: filteredArtists.length,
             query: q
           });
         } else {
@@ -147,13 +225,28 @@ class MusicaController {
   // Obtener géneros disponibles
   static async searchGenres(req, res) {
     try {
+      const { establecimientoId } = req.query;
+      
       // Géneros populares de Spotify
-      const genres = [
+      let genres = [
         'pop', 'rock', 'hip-hop', 'electronic', 'jazz', 'classical',
         'country', 'reggae', 'blues', 'folk', 'r&b', 'funk',
         'disco', 'punk', 'metal', 'indie', 'alternative', 'latin',
         'world', 'ambient', 'house', 'techno', 'dubstep', 'trap'
       ];
+
+      // Aplicar filtros de bloqueo si hay establecimientoId
+      if (establecimientoId) {
+        try {
+          const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
+          
+          // Filtrar géneros bloqueados
+          genres = genres.filter(genre => !filters.generos.has(genre.toLowerCase()));
+          console.log(`After filtering blocked genres: ${genres.length} genres available`);
+        } catch (filterError) {
+          console.error('Error applying genre filters, returning all genres:', filterError);
+        }
+      }
 
       res.json({ 
         success: true, 
@@ -262,10 +355,40 @@ class MusicaController {
 
         console.log(`Successfully found ${allTracks.length} tracks for artist: ${artistId}`);
         
+        // Aplicar filtros de bloqueo si hay establecimientoId
+        let filteredTracks = allTracks;
+        
+        if (establecimientoId) {
+          try {
+            const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
+            
+            // Verificar si el artista está bloqueado
+            // Obtener el nombre del artista de la primera canción
+            if (allTracks.length > 0) {
+              const artistName = allTracks[0].artista;
+              if (filters.artistas.has(artistName.toLowerCase())) {
+                console.log(`Artist ${artistName} is blocked for establecimiento ${establecimientoId}`);
+                return res.json({
+                  success: true,
+                  tracks: [],
+                  total: 0,
+                  blocked: true,
+                  message: 'Este artista está bloqueado por el establecimiento'
+                });
+              }
+            }
+            
+            filteredTracks = MusicaController.filterBlockedTracks(allTracks, filters);
+            console.log(`After filtering: ${filteredTracks.length} tracks`);
+          } catch (filterError) {
+            console.error('Error applying filters, returning unfiltered results:', filterError);
+          }
+        }
+        
         res.json({
           success: true,
-          tracks: allTracks,
-          total: allTracks.length
+          tracks: filteredTracks,
+          total: filteredTracks.length
         });
 
       } catch (spotifyError) {
@@ -371,10 +494,37 @@ class MusicaController {
         if (searchSuccessful && allTracks.length > 0) {
           console.log(`Successfully found ${allTracks.length} tracks for genre: ${genre}`);
           
+          // Aplicar filtros de bloqueo si hay establecimientoId
+          let filteredTracks = allTracks;
+          
+          if (establecimientoId) {
+            try {
+              const filters = await MusicaController.getEstablecimientoFilters(establecimientoId);
+              
+              // Verificar si el género completo está bloqueado
+              if (filters.generos.has(genre.toLowerCase())) {
+                console.log(`Genre ${genre} is blocked for establecimiento ${establecimientoId}`);
+                return res.json({
+                  success: true,
+                  tracks: [],
+                  total: 0,
+                  genre: genre,
+                  blocked: true,
+                  message: 'Este género está bloqueado por el establecimiento'
+                });
+              }
+              
+              filteredTracks = MusicaController.filterBlockedTracks(allTracks, filters);
+              console.log(`After filtering: ${filteredTracks.length} tracks`);
+            } catch (filterError) {
+              console.error('Error applying filters, returning unfiltered results:', filterError);
+            }
+          }
+          
           res.json({
             success: true,
-            tracks: allTracks,
-            total: allTracks.length,
+            tracks: filteredTracks,
+            total: filteredTracks.length,
             genre: genre
           });
         } else {

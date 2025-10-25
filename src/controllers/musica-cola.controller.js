@@ -222,36 +222,64 @@ class MusicaColaController {
               if (limite_reproduccion_cancion && limite_reproduccion_cancion !== 'sin_limite') {
                 const horasAtras = limite_reproduccion_cancion === '1_hora' ? 1 : 2;
                 
+                // Primero verificar si la canción ya está en la cola actual
                 db.query(
-                  `SELECT COUNT(*) as count FROM historial_reproduccion hr
-                   INNER JOIN canciones c ON hr.cancion_id = c.id_cancion
+                  `SELECT COUNT(*) as count FROM cola_cancion cc
+                   INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
                    WHERE c.spotify_id = ? 
-                   AND hr.establecimiento_id = ?
-                   AND hr.reproducida_en >= DATE_SUB(NOW(), INTERVAL ? HOUR)`,
-                  [spotify_id, establecimientoId, horasAtras],
-                  (err, historyResult) => {
+                   AND cc.establecimiento_id = ?
+                   AND cc.status IN ('pending', 'playing')`,
+                  [spotify_id, establecimientoId],
+                  (err, queueResult) => {
                     if (err) {
-                      console.error('Error checking song play history:', err);
+                      console.error('Error checking song in queue:', err);
                       return res.status(500).json({
                         success: false,
                         error: 'Failed to check song limits'
                       });
                     }
 
-                    if (historyResult[0].count > 0) {
-                      const mensaje = limite_reproduccion_cancion === '1_hora' 
-                        ? 'Esta canción ya fue reproducida en la última hora'
-                        : 'Esta canción ya fue reproducida en las últimas 2 horas';
-                      
+                    if (queueResult[0].count > 0) {
                       return res.status(429).json({
                         success: false,
-                        error: mensaje,
-                        limitType: 'song_play_limit'
+                        error: 'Esta canción ya está en la cola de reproducción',
+                        limitType: 'song_in_queue'
                       });
                     }
 
-                    // Verificar límite de peticiones por usuario
-                    checkUserRequestLimit(limite_peticiones_usuario_hora);
+                    // Ahora verificar el historial
+                    db.query(
+                      `SELECT COUNT(*) as count FROM historial_reproduccion hr
+                       INNER JOIN canciones c ON hr.cancion_id = c.id_cancion
+                       WHERE c.spotify_id = ? 
+                       AND hr.establecimiento_id = ?
+                       AND hr.reproducida_en >= DATE_SUB(NOW(), INTERVAL ? HOUR)`,
+                      [spotify_id, establecimientoId, horasAtras],
+                      (err, historyResult) => {
+                        if (err) {
+                          console.error('Error checking song play history:', err);
+                          return res.status(500).json({
+                            success: false,
+                            error: 'Failed to check song limits'
+                          });
+                        }
+
+                        if (historyResult[0].count > 0) {
+                          const mensaje = limite_reproduccion_cancion === '1_hora' 
+                            ? 'Esta canción ya fue reproducida en la última hora'
+                            : 'Esta canción ya fue reproducida en las últimas 2 horas';
+                          
+                          return res.status(429).json({
+                            success: false,
+                            error: mensaje,
+                            limitType: 'song_play_limit'
+                          });
+                        }
+
+                        // Verificar límite de peticiones por usuario
+                        checkUserRequestLimit(limite_peticiones_usuario_hora);
+                      }
+                    );
                   }
                 );
               } else {
@@ -463,6 +491,7 @@ class MusicaColaController {
           queue: queue.map(item => ({
             id: item.id,
             cancion_id: item.cancion_id,
+            anadido_por: item.anadido_por,
             posicion: item.posicion,
             status: item.status,
             agregada_en: item.agregada_en,
