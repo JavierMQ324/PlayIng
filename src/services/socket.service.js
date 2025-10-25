@@ -32,6 +32,15 @@ class SocketService {
     });
   }
 
+  emitHistoryUpdate(establecimientoId) {
+    const room = `establecimiento:${establecimientoId}`;
+    
+    this.io.to(room).emit('history_update', {
+      establecimientoId,
+      timestamp: new Date().toISOString()
+    });
+  }
+
   /**
    * Emitir cambio de estado de reproducción (play/pause)
    * @param {number} establecimientoId - ID del establecimiento

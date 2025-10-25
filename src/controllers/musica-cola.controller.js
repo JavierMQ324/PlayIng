@@ -632,6 +632,13 @@ class MusicaColaController {
                     return callback(err);
                   }
                   console.log(`Moved item ${item.id} to history`);
+                  
+                  // 📡 Emitir eventos de actualización de historial Y cola
+                  if (socketService) {
+                    socketService.emitHistoryUpdate(establecimientoId);
+                    socketService.emitQueueUpdate(establecimientoId);
+                  }
+                  
                   callback(null);
                 }
               );
@@ -735,6 +742,7 @@ class MusicaColaController {
                         imagen_url: track.imagen_url,
                         duracion: track.duracion
                       });
+                      socketService.emitQueueUpdate(establecimientoId);
                     }
                     
                     res.json({
@@ -817,6 +825,13 @@ class MusicaColaController {
                 MusicaColaController.reorderQueuePositions(queueItem.establecimiento_id, (err) => {
                   if (err) {
                     console.error('Error reordering positions after moving to history:', err);
+                  }
+
+                  // 📡 Emitir eventos de actualización de historial Y cola
+                  const socketService = req.app.get('socketService');
+                  if (socketService) {
+                    socketService.emitHistoryUpdate(queueItem.establecimiento_id);
+                    socketService.emitQueueUpdate(queueItem.establecimiento_id);
                   }
 
                   console.log(`Queue item ${colaId} moved to history successfully`);
@@ -1002,6 +1017,13 @@ class MusicaColaController {
                         MusicaColaController.reorderQueuePositions(establecimientoId, (err) => {
                           if (err) {
                             console.error('Error reordering positions after adding to queue:', err);
+                          }
+
+                          // 📡 Emitir eventos de actualización
+                          const socketService = req.app.get('socketService');
+                          if (socketService) {
+                            socketService.emitQueueUpdate(establecimientoId);
+                            socketService.emitHistoryUpdate(establecimientoId);
                           }
 
                           console.log(`Song added to queue at position 1 and set as playing`);
