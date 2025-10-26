@@ -122,3 +122,5 @@ class ConfiguracionController {
 
 module.exports = ConfiguracionController;
 
+
+

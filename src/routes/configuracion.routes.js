@@ -14,3 +14,5 @@ router.put('/', ConfiguracionController.updateConfiguracion);
 
 module.exports = router;
 
+
+
