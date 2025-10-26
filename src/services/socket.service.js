@@ -105,6 +105,41 @@ class SocketService {
       timestamp: new Date().toISOString()
     });
   }
+
+  /**
+   * Emitir actualización de votos (likes y skips)
+   * @param {number} establecimientoId - ID del establecimiento
+   * @param {number} colaCancionId - ID de la canción en cola
+   * @param {object} votes - {likes, skips}
+   */
+  emitVotesUpdate(establecimientoId, colaCancionId, votes) {
+    const room = `establecimiento:${establecimientoId}`;
+    
+    console.log(`🔊 Emitiendo votes_update a sala ${room}:`, { colaCancionId, likes: votes.likes, skips: votes.skips });
+    
+    this.io.to(room).emit('votes_update', {
+      establecimientoId,
+      colaCancionId,
+      likes: votes.likes,
+      skips: votes.skips,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Emitir skip automático de una canción
+   * @param {number} establecimientoId - ID del establecimiento
+   * @param {number} colaCancionId - ID de la canción en cola que fue skipeada
+   */
+  emitSkipTrack(establecimientoId, colaCancionId) {
+    const room = `establecimiento:${establecimientoId}`;
+    
+    this.io.to(room).emit('track_skipped', {
+      establecimientoId,
+      colaCancionId,
+      timestamp: new Date().toISOString()
+    });
+  }
 }
 
 module.exports = SocketService;

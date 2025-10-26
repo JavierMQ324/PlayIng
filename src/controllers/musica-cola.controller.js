@@ -738,7 +738,9 @@ class MusicaColaController {
                     c.imagen_url,
                     c.genero,
                     c.preview_url,
-                    u.nombre as usuario_nombre
+                    u.nombre as usuario_nombre,
+                    (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
+                    (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
                    FROM cola_cancion cc
                    INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
                    INNER JOIN usuarios u ON cc.anadido_por = u.id_user
@@ -750,6 +752,7 @@ class MusicaColaController {
                       socketService.emitPlaybackUpdate(establecimientoId, {
                         currentTrack: {
                           id: track.id,
+                          cola_id: track.id,
                           cancion_id: track.cancion_id,
                           spotify_id: track.spotify_id,
                           titulo: track.titulo,
@@ -759,17 +762,22 @@ class MusicaColaController {
                           imagen_url: track.imagen_url,
                           genero: track.genero,
                           preview_url: track.preview_url,
-                          usuario_nombre: track.usuario_nombre
+                          usuario_nombre: track.usuario_nombre,
+                          likes_count: track.likes_count || 0,
+                          skips_count: track.skips_count || 0
                         },
                         isPlaying: true,
                         position: 0
                       });
                       socketService.emitTrackStarted(establecimientoId, {
+                        cola_id: track.id,
                         titulo: track.titulo,
                         artista: track.artista,
                         album: track.album,
                         imagen_url: track.imagen_url,
-                        duracion: track.duracion
+                        duracion: track.duracion,
+                        likes_count: track.likes_count || 0,
+                        skips_count: track.skips_count || 0
                       });
                       socketService.emitQueueUpdate(establecimientoId);
                     }
@@ -1299,7 +1307,9 @@ class MusicaColaController {
         c.imagen_url,
         c.genero,
         c.preview_url,
-        u.nombre as usuario_nombre
+        u.nombre as usuario_nombre,
+        (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
+        (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
        FROM cola_cancion cc
        INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
        INNER JOIN usuarios u ON cc.anadido_por = u.id_user
@@ -1328,6 +1338,7 @@ class MusicaColaController {
           success: true,
           currentPlaying: {
             id: item.id,
+            cola_id: item.id, // Agregar cola_id para votos
             cancion_id: item.cancion_id,
             posicion: item.posicion,
             status: item.status,
@@ -1340,7 +1351,9 @@ class MusicaColaController {
             imagen_url: item.imagen_url,
             genero: item.genero,
             preview_url: item.preview_url,
-            usuario_nombre: item.usuario_nombre
+            usuario_nombre: item.usuario_nombre,
+            likes_count: item.likes_count || 0,
+            skips_count: item.skips_count || 0
           }
         });
       }
