@@ -1056,11 +1056,77 @@ class MusicaColaController {
                             console.error('Error reordering positions after adding to queue:', err);
                           }
 
-                          // 📡 Emitir eventos de actualización
+                          // 📡 Emitir eventos de actualización CON toda la información
                           const socketService = req.app.get('socketService');
                           if (socketService) {
-                            socketService.emitQueueUpdate(establecimientoId);
-                            socketService.emitHistoryUpdate(establecimientoId);
+                            // Obtener información completa de la canción que se acaba de agregar
+                            db.query(
+                              `SELECT 
+                                cc.id,
+                                cc.cancion_id,
+                                cc.anadido_por,
+                                cc.posicion,
+                                cc.status,
+                                cc.agregada_en,
+                                c.spotify_id,
+                                c.titulo,
+                                c.artista,
+                                c.album,
+                                c.duracion,
+                                c.imagen_url,
+                                c.genero,
+                                c.preview_url,
+                                u.nombre as usuario_nombre,
+                                (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
+                                (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
+                               FROM cola_cancion cc
+                               INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
+                               INNER JOIN usuarios u ON cc.anadido_por = u.id_user
+                               WHERE cc.id = ?`,
+                              [queueId],
+                              (err, trackInfo) => {
+                                if (!err && trackInfo && trackInfo.length > 0) {
+                                  const track = trackInfo[0];
+                                  
+                                  // Emitir playback_update con toda la info
+                                  socketService.emitPlaybackUpdate(establecimientoId, {
+                                    currentTrack: {
+                                      id: track.id,
+                                      cola_id: track.id,
+                                      cancion_id: track.cancion_id,
+                                      spotify_id: track.spotify_id,
+                                      titulo: track.titulo,
+                                      artista: track.artista,
+                                      album: track.album,
+                                      duracion: track.duracion,
+                                      imagen_url: track.imagen_url,
+                                      genero: track.genero,
+                                      preview_url: track.preview_url,
+                                      usuario_nombre: track.usuario_nombre,
+                                      likes_count: track.likes_count || 0,
+                                      skips_count: track.skips_count || 0
+                                    },
+                                    isPlaying: true,
+                                    position: 0
+                                  });
+                                  
+                                  // Emitir track_started
+                                  socketService.emitTrackStarted(establecimientoId, {
+                                    cola_id: track.id,
+                                    titulo: track.titulo,
+                                    artista: track.artista,
+                                    album: track.album,
+                                    imagen_url: track.imagen_url,
+                                    duracion: track.duracion,
+                                    likes_count: track.likes_count || 0,
+                                    skips_count: track.skips_count || 0
+                                  });
+                                }
+                                
+                                socketService.emitQueueUpdate(establecimientoId);
+                                socketService.emitHistoryUpdate(establecimientoId);
+                              }
+                            );
                           }
 
                           console.log(`Song added to queue at position 1 and set as playing`);
@@ -1235,24 +1301,71 @@ class MusicaColaController {
       });
     }
 
-    console.log(`Updating playback state for establecimiento ${establecimientoId}: isPlaying=${isPlaying}, position=${position}ms`);
-
-    // 📡 Emitir evento completo de estado (incluye posición, duración y track)
-    const socketService = req.app.get('socketService');
-    if (socketService) {
-      // Emitir actualización completa con toda la información
-      socketService.emitPlaybackUpdate(establecimientoId, {
-        currentTrack,
-        isPlaying,
-        position: position || 0,
-        duration: duration || 0
-      });
-    }
-
+    // Responder inmediatamente
     res.json({
       success: true,
       message: 'Playback state updated'
     });
+
+    // Obtener información completa de la BD y emitir
+    db.query(
+      `SELECT 
+        cc.id,
+        cc.cancion_id,
+        cc.anadido_por,
+        cc.posicion,
+        cc.status,
+        cc.agregada_en,
+        c.spotify_id,
+        c.titulo,
+        c.artista,
+        c.album,
+        c.duracion,
+        c.imagen_url,
+        c.genero,
+        c.preview_url,
+        u.nombre as usuario_nombre,
+        (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
+        (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
+       FROM cola_cancion cc
+       INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
+       INNER JOIN usuarios u ON cc.anadido_por = u.id_user
+       WHERE cc.establecimiento_id = ? AND cc.status = 'playing'
+       ORDER BY cc.posicion ASC
+       LIMIT 1`,
+      [establecimientoId],
+      (err, results) => {
+        if (err || !results || results.length === 0) {
+          return;
+        }
+
+        const track = results[0];
+        const socketService = req.app.get('socketService');
+        if (socketService) {
+          socketService.emitPlaybackUpdate(establecimientoId, {
+            currentTrack: {
+              id: track.id,
+              cola_id: track.id,
+              cancion_id: track.cancion_id,
+              spotify_id: track.spotify_id,
+              titulo: track.titulo,
+              artista: track.artista,
+              album: track.album,
+              duracion: track.duracion,
+              imagen_url: track.imagen_url,
+              genero: track.genero,
+              preview_url: track.preview_url,
+              usuario_nombre: track.usuario_nombre,
+              likes_count: track.likes_count || 0,
+              skips_count: track.skips_count || 0
+            },
+            isPlaying,
+            position: position || 0,
+            duration: duration || 0
+          });
+        }
+      }
+    );
   }
 
   // ✅ Actualizar progreso de reproducción y emitir evento

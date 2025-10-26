@@ -1,16 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const LyricsController = require('../controllers/lyrics.controller');
-const { verifyToken } = require('../controllers/usuarios.controller');
 
-// Obtener letras por título y artista (endpoint principal)
-router.get('/', verifyToken, LyricsController.getLyrics);
+// Obtener letras por título y artista (endpoint principal) - NO requiere auth (info pública)
+router.get('/', LyricsController.getLyrics);
 
-// Buscar múltiples resultados
-router.get('/search', verifyToken, LyricsController.searchLyrics);
+// Buscar múltiples resultados - NO requiere auth (info pública)
+router.get('/search', LyricsController.searchLyrics);
 
-// Obtener letras por ID de LRCLIB
-router.get('/:id', verifyToken, LyricsController.getLyricsById);
+// Obtener letras por ID de LRCLIB - NO requiere auth (info pública)
+router.get('/:id', LyricsController.getLyricsById);
 
 module.exports = router;
 
