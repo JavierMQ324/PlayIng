@@ -123,10 +123,18 @@ app.set('socketService', socketService);
 io.on('connection', (socket) => {
   socket.on('join_establecimiento', (establecimientoId) => {
     socket.join(`establecimiento:${establecimientoId}`);
+    console.log(`✅ Cliente conectado a sala: establecimiento:${establecimientoId}`);
   });
   
   socket.on('join_user', (userId) => {
     socket.join(`user:${userId}`);
+  });
+  
+  // Escuchar cuando un cliente emite actualización de cola
+  socket.on('queue_updated', (data) => {
+    const { establecimientoId } = data;
+    console.log(`📋 Recibido queue_updated para establecimiento ${establecimientoId}, retransmitiendo...`);
+    socketService.emitQueueUpdate(establecimientoId);
   });
   
   socket.on('disconnect', () => {

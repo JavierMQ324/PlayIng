@@ -1196,6 +1196,14 @@ class MusicaColaController {
               
               if (completed === totalUpdates && !hadError) {
                 console.log(`✅ Queue reordered successfully! Updated ${completed} songs`);
+                
+                // 📡 Emitir evento de socket para notificar a todos los clientes
+                const socketService = req.app.get('socketService');
+                if (socketService) {
+                  console.log(`📡 Emitiendo queue_update para establecimiento ${establecimientoId}`);
+                  socketService.emitQueueUpdate(establecimientoId);
+                }
+                
                 res.json({
                   success: true,
                   message: 'Queue reordered successfully'
