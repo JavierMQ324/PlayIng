@@ -30,6 +30,7 @@ const filtrosRoutes = require('./routes/filtros.routes');
 const configuracionRoutes = require('./routes/configuracion.routes');
 const lyricsRoutes = require('./routes/lyrics.routes');
 const ordenesRoutes = require('./routes/ordenes.routes');
+const llamadasRoutes = require('./routes/llamadas.routes');
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -47,6 +48,7 @@ app.use('/api/filtros', filtrosRoutes);
 app.use('/api/configuracion', configuracionRoutes);
 app.use('/api/lyrics', lyricsRoutes);
 app.use('/api/ordenes', ordenesRoutes);
+app.use('/api/llamadas', llamadasRoutes);
 
 // Ruta de callback para OAuth móvil
 app.get('/auth/callback', (req, res) => {
