@@ -178,6 +178,7 @@ const updateOrdenStatus = (req, res) => {
 };
 
 // Actualizar el tiempo estimado de una orden
+// Cuando se actualiza manualmente (botones +/-), también actualiza la fecha de creación
 const updateOrdenTiempo = (req, res) => {
   const { id } = req.params;
   const { tiempo_estimado } = req.body;
@@ -186,7 +187,8 @@ const updateOrdenTiempo = (req, res) => {
     return res.status(400).json({ error: 'Tiempo estimado inválido' });
   }
 
-  const query = 'UPDATE ordenes SET tiempo_estimado = ? WHERE id_orden = ?';
+  // Actualizar el tiempo y la fecha de creación a "ahora" para reiniciar el cálculo
+  const query = 'UPDATE ordenes SET tiempo_estimado = ?, creada_en = NOW() WHERE id_orden = ?';
 
   db.query(query, [tiempo_estimado, id], (err, result) => {
     if (err) {
