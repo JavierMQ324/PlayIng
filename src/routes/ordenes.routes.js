@@ -10,6 +10,9 @@ router.use(verifyToken);
 // Esta ruta debe ir primero para evitar conflicto con la ruta dinámica
 router.get('/usuarios-activos/:establecimientoId', ordenesController.getUsuariosActivos);
 
+// GET /api/ordenes/usuario - Obtener órdenes del usuario actual (cliente móvil)
+router.get('/usuario', ordenesController.getOrdenesUsuario);
+
 // GET /api/ordenes/estado-usuarios/:establecimientoId - Obtener estado de órdenes por usuario
 router.get('/estado-usuarios/:establecimientoId', ordenesController.getEstadoOrdenesUsuarios);
 

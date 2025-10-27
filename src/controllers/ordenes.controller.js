@@ -11,6 +11,7 @@ const getOrdenes = (req, res) => {
       o.status,
       o.total_monto,
       o.tiempo_estimado,
+      o.tiempo_anadido,
       o.creada_en,
       o.actualizado_en,
       u.id_user AS usuario_id,
@@ -97,6 +98,7 @@ const createOrden = (req, res) => {
         o.status,
         o.total_monto,
         o.tiempo_estimado,
+        o.tiempo_anadido,
         o.creada_en,
         o.actualizado_en,
         u.id_user AS usuario_id,
@@ -177,20 +179,20 @@ const updateOrdenStatus = (req, res) => {
   });
 };
 
-// Actualizar el tiempo estimado de una orden
-// Cuando se actualiza manualmente (botones +/-), también actualiza la fecha de creación
+// Actualizar el tiempo añadido de una orden (ajuste +/-)
+// NO actualiza creada_en para mantener la hora real de creación
 const updateOrdenTiempo = (req, res) => {
   const { id } = req.params;
-  const { tiempo_estimado } = req.body;
+  const { ajuste } = req.body; // ajuste puede ser positivo o negativo
 
-  if (tiempo_estimado === undefined || tiempo_estimado < 0) {
-    return res.status(400).json({ error: 'Tiempo estimado inválido' });
+  if (ajuste === undefined) {
+    return res.status(400).json({ error: 'Ajuste de tiempo requerido' });
   }
 
-  // Actualizar el tiempo y la fecha de creación a "ahora" para reiniciar el cálculo
-  const query = 'UPDATE ordenes SET tiempo_estimado = ?, creada_en = NOW() WHERE id_orden = ?';
+  // Solo actualizar tiempo_anadido, manteniendo creada_en y tiempo_estimado intactos
+  const query = 'UPDATE ordenes SET tiempo_anadido = tiempo_anadido + ? WHERE id_orden = ?';
 
-  db.query(query, [tiempo_estimado, id], (err, result) => {
+  db.query(query, [ajuste, id], (err, result) => {
     if (err) {
       console.error('Error al actualizar tiempo de orden:', err);
       return res.status(500).json({ error: 'Error al actualizar tiempo de orden' });
@@ -205,7 +207,7 @@ const updateOrdenTiempo = (req, res) => {
     if (io) {
       const establecimientoId = req.body.establecimientoId;
       if (establecimientoId) {
-        io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { id, tiempo_estimado });
+        io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { id, ajuste });
       }
     }
 
@@ -306,6 +308,45 @@ const getEstadoOrdenesUsuarios = (req, res) => {
   });
 };
 
+// Obtener las órdenes del usuario actual (cliente móvil)
+const getOrdenesUsuario = (req, res) => {
+  const userId = req.user.id_user || req.user.id; // Soportar ambos formatos
+  
+  const query = `
+    SELECT 
+      o.id_orden,
+      o.numero_orden,
+      o.status,
+      o.total_monto,
+      o.tiempo_estimado,
+      o.tiempo_anadido,
+      o.creada_en,
+      o.actualizado_en,
+      m.numero_mesa,
+      e.nombre AS establecimiento_nombre
+    FROM ordenes o
+    INNER JOIN mesas m ON o.mesa_id = m.id_mesa
+    INNER JOIN establecimientos e ON m.establecimiento_id = e.id_establecimiento
+    WHERE o.usuario_id = ? 
+    AND o.status IN ('pendiente', 'en_preparacion', 'entregada')
+    ORDER BY 
+      CASE o.status 
+        WHEN 'en_preparacion' THEN 1
+        WHEN 'pendiente' THEN 2
+        WHEN 'entregada' THEN 3
+      END,
+      o.creada_en DESC
+  `;
+
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Error al obtener órdenes del usuario:', err);
+      return res.status(500).json({ error: 'Error al obtener órdenes del usuario' });
+    }
+    res.json({ success: true, ordenes: results });
+  });
+};
+
 module.exports = {
   getOrdenes,
   getUsuariosActivos,
@@ -313,6 +354,7 @@ module.exports = {
   updateOrdenStatus,
   updateOrdenTiempo,
   deleteOrdenes,
-  getEstadoOrdenesUsuarios
+  getEstadoOrdenesUsuarios,
+  getOrdenesUsuario
 };
 

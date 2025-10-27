@@ -12,11 +12,15 @@ const {
   linkByQr,
   listClientes,
   leaveRestaurant,
-  kickUsers
+  kickUsers,
+  getEstablecimientoActivo,
+  debugUserStatus
 } = require('../controllers/establecimientos.controller');
 
 router.get('/mio', verifyToken, getMyEstablecimiento);
 router.post('/mio', verifyToken, upsertMyEstablecimiento);
+router.get('/activo', verifyToken, getEstablecimientoActivo); // Para clientes móviles
+router.get('/debug/user', verifyToken, debugUserStatus); // DEBUG endpoint
 
 router.post('/mesas', verifyToken, createMesa);
 router.get('/:id/mesas', verifyToken, listMesas);

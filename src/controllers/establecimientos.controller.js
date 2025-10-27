@@ -326,6 +326,89 @@ function leaveRestaurant(req, res) {
   });
 }
 
+// Obtener establecimiento activo del cliente (basado en su mesa activa)
+function getEstablecimientoActivo(req, res) {
+  const userId = req.user.id_user || req.user.id; // Soportar ambos formatos
+
+  // Primero verificar si el usuario tiene mesa_id_activa
+  const checkUserQuery = 'SELECT id_user, nombre, mesa_id_activa FROM usuarios WHERE id_user = ?';
+  db.query(checkUserQuery, [userId], (err, userResults) => {
+    if (err) {
+      console.error('Error al verificar usuario:', err);
+      return res.status(500).json({ error: 'Error al verificar usuario' });
+    }
+    
+    if (!userResults[0] || !userResults[0].mesa_id_activa) {
+      return res.json({ success: false, mensaje: 'No tienes una mesa activa' });
+    }
+
+    const query = `
+      SELECT 
+        e.id_establecimiento,
+        e.nombre,
+        e.url_menu,
+        e.ubicacion,
+        m.id_mesa,
+        m.numero_mesa
+      FROM usuarios u
+      INNER JOIN mesas m ON u.mesa_id_activa = m.id_mesa
+      INNER JOIN establecimientos e ON m.establecimiento_id = e.id_establecimiento
+      WHERE u.id_user = ?
+    `;
+
+    db.query(query, [userId], (err, results) => {
+      if (err) {
+        console.error('Error al obtener establecimiento activo:', err);
+        return res.status(500).json({ error: 'Error al obtener establecimiento activo' });
+      }
+
+      if (results.length === 0) {
+        return res.json({ success: false, mensaje: 'No tienes una mesa activa' });
+      }
+
+      res.json({ 
+        success: true, 
+        establecimiento: results[0]
+      });
+    });
+  });
+}
+
+// DEBUG: Verificar estado del usuario actual
+function debugUserStatus(req, res) {
+  const userId = req.user.id_user || req.user.id; // Soportar ambos formatos
+  console.log('=== DEBUG User Status ===');
+  console.log('userId from token:', userId);
+  console.log('req.user completo:', req.user);
+  
+  const query = `
+    SELECT 
+      u.id_user,
+      u.nombre,
+      u.email,
+      u.roll,
+      u.mesa_id_activa,
+      m.numero_mesa,
+      m.establecimiento_id,
+      e.nombre AS establecimiento_nombre,
+      (SELECT COUNT(*) FROM ordenes WHERE usuario_id = u.id_user) AS total_ordenes
+    FROM usuarios u
+    LEFT JOIN mesas m ON u.mesa_id_activa = m.id_mesa
+    LEFT JOIN establecimientos e ON m.establecimiento_id = e.id_establecimiento
+    WHERE u.id_user = ?
+  `;
+  
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Error:', err);
+      return res.status(500).json({ error: 'Error al obtener información del usuario' });
+    }
+    
+    console.log('Resultado:', results[0]);
+    res.json({ success: true, user: results[0] });
+  });
+}
+
 module.exports = {
   ensureSchema,
   upsertMyEstablecimiento,
@@ -338,5 +421,7 @@ module.exports = {
   linkByQr,
   listClientes,
   leaveRestaurant,
-  kickUsers
+  kickUsers,
+  getEstablecimientoActivo,
+  debugUserStatus
 };
