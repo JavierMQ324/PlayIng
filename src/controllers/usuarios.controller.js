@@ -233,6 +233,43 @@ const getProfile = (req, res) => {
   });
 };
 
+// Actualizar perfil del usuario
+const updateProfile = (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ success: false, error: 'No autenticado' });
+  }
+
+  const { nombre } = req.body;
+  
+  if (!nombre || !nombre.trim()) {
+    return res.status(400).json({ success: false, error: 'El nombre es requerido' });
+  }
+
+  // Validar longitud del nombre
+  if (nombre.trim().length > 100) {
+    return res.status(400).json({ success: false, error: 'El nombre es demasiado largo' });
+  }
+
+  db.query('UPDATE usuarios SET nombre = ? WHERE id_user = ?', [nombre.trim(), userId], (err, result) => {
+    if (err) {
+      console.error('Error actualizando perfil:', err);
+      return res.status(500).json({ success: false, error: 'Error al actualizar el perfil' });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    // Obtener el usuario actualizado
+    db.query('SELECT id_user AS id, nombre, email, roll, mesa_id_activa FROM usuarios WHERE id_user = ? LIMIT 1', [userId], (err, rows) => {
+      if (err) return res.status(500).json({ success: false, error: 'DB error' });
+      if (!rows || !rows[0]) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+      res.json({ success: true, user: rows[0], mensaje: 'Perfil actualizado correctamente' });
+    });
+  });
+};
+
 // Obtener todos los usuarios (solo admin)
 const getAllUsers = (req, res) => {
   if (req.user.roll !== 'admin') {
@@ -260,6 +297,7 @@ module.exports = {
   googleAuthCliente,
   verifyToken,
   getProfile,
+  updateProfile,
   getAllUsers,
   logout
 };

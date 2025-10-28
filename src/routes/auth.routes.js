@@ -5,6 +5,7 @@ const {
   googleAuthCliente, 
   verifyToken, 
   getProfile,
+  updateProfile,
   getAllUsers,
   logout
 } = require('../controllers/usuarios.controller');
@@ -16,6 +17,7 @@ router.post('/logout', logout);
 
 // Rutas protegidas
 router.get('/profile', verifyToken, getProfile);
+router.put('/profile', verifyToken, updateProfile);
 router.get('/users', verifyToken, getAllUsers);
 
 module.exports = router;
