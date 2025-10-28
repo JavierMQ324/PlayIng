@@ -135,22 +135,83 @@ class MusicaController {
 
             // Procesar artistas solo en la primera búsqueda
             if (!artistsCollected && response.data.artists) {
-              const foundArtists = response.data.artists.items.map(artist => ({
-                spotify_id: artist.id,
-                nombre: artist.name,
-                imagen_url: artist.images[0]?.url || null,
-                genres: artist.genres || [],
-                followers: artist.followers?.total || 0,
-                popularity: artist.popularity || 0
-              }));
+              const foundArtists = response.data.artists.items
+                // Filtrar artistas que tengan imagen (indica que son verificados/reales)
+                .filter(artist => artist.images && artist.images.length > 0)
+                // Filtrar artistas con popularidad mínima (evita artistas muy oscuros/duplicados)
+                .filter(artist => (artist.popularity || 0) >= 20)
+                .map(artist => ({
+                  spotify_id: artist.id,
+                  nombre: artist.name,
+                  imagen_url: artist.images[0]?.url || null,
+                  genres: artist.genres || [],
+                  followers: artist.followers?.total || 0,
+                  popularity: artist.popularity || 0
+                }));
 
-              // Ordenar por popularidad (más popular primero) y tomar solo los 10 mejores
-              allArtists = foundArtists
-                .sort((a, b) => b.popularity - a.popularity)
-                .slice(0, 6);
+              // Eliminar duplicados por nombre (case-insensitive)
+              const uniqueArtists = [];
+              const seenNames = new Set();
+              
+              foundArtists.forEach(artist => {
+                const nameLower = artist.nombre.toLowerCase().trim();
+                if (!seenNames.has(nameLower)) {
+                  seenNames.add(nameLower);
+                  uniqueArtists.push(artist);
+                }
+              });
+
+              // Calcular score de relevancia para cada artista
+              const searchLower = q.toLowerCase().trim();
+              const artistsWithScore = uniqueArtists.map(artist => {
+                const nameLower = artist.nombre.toLowerCase();
+                let relevanceScore = 0;
+                
+                // Coincidencia exacta (máxima prioridad)
+                if (nameLower === searchLower) {
+                  relevanceScore = 1000;
+                }
+                // Comienza con el término de búsqueda (alta prioridad)
+                else if (nameLower.startsWith(searchLower)) {
+                  relevanceScore = 500;
+                }
+                // Contiene el término de búsqueda completo (prioridad media)
+                else if (nameLower.includes(searchLower)) {
+                  relevanceScore = 250;
+                }
+                // Contiene palabras del término de búsqueda (prioridad baja)
+                else {
+                  const searchWords = searchLower.split(/\s+/);
+                  const nameWords = nameLower.split(/\s+/);
+                  let matchingWords = 0;
+                  
+                  searchWords.forEach(searchWord => {
+                    if (nameWords.some(nameWord => nameWord.includes(searchWord) || searchWord.includes(nameWord))) {
+                      matchingWords++;
+                    }
+                  });
+                  
+                  relevanceScore = matchingWords * 50;
+                }
+                
+                // Añadir bonus de popularidad (normalizado de 0-100)
+                // Dar más peso a la popularidad para equilibrar relevancia
+                const popularityBonus = (artist.popularity || 0) * 1.5;
+                
+                return {
+                  ...artist,
+                  relevanceScore: relevanceScore + popularityBonus
+                };
+              });
+
+              // Ordenar por score de relevancia (más relevante primero) y tomar los 6 mejores
+              allArtists = artistsWithScore
+                .sort((a, b) => b.relevanceScore - a.relevanceScore)
+                .slice(0, 6)
+                .map(({ relevanceScore, ...artist }) => artist); // Remover el score del resultado final
               
               artistsCollected = true;
-              console.log(`Collected ${allArtists.length} most relevant artists (sorted by popularity)`);
+              console.log(`Collected ${allArtists.length} most relevant artists (sorted by search relevance + popularity)`);
             }
 
             // Combinar tracks únicos
