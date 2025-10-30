@@ -25,79 +25,57 @@ const createLlamada = (req, res) => {
     const mesaId = results[0].mesa_id_activa;
     const establecimientoId = results[0].establecimiento_id;
     
-    // Verificar si ya existe una llamada pendiente reciente (últimos 2 minutos)
-    const checkPendingQuery = `
-      SELECT id_llamada 
-      FROM llamadas 
-      WHERE usuario_id = ? 
-      AND status = 'pendiente' 
-      AND creada_en > DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+    // Crear la nueva llamada
+    // Nota: El cooldown de 1 minuto es manejado por la app móvil
+    const insertQuery = `
+      INSERT INTO llamadas (usuario_id, establecimiento_id, mesa_id, status)
+      VALUES (?, ?, ?, 'pendiente')
     `;
     
-    db.query(checkPendingQuery, [userId], (err, pendingResults) => {
+    db.query(insertQuery, [userId, establecimientoId, mesaId], (err, result) => {
       if (err) {
-        console.error('Error al verificar llamadas pendientes:', err);
-        return res.status(500).json({ error: 'Error al verificar llamadas pendientes' });
+        console.error('Error al crear llamada:', err);
+        return res.status(500).json({ error: 'Error al crear llamada' });
       }
       
-      if (pendingResults.length > 0) {
-        return res.status(400).json({ 
-          error: 'Ya tienes una llamada pendiente',
-          mensaje: 'Por favor espera a que el mesero te atienda'
-        });
-      }
-      
-      // Crear la nueva llamada
-      const insertQuery = `
-        INSERT INTO llamadas (usuario_id, establecimiento_id, mesa_id, status)
-        VALUES (?, ?, ?, 'pendiente')
+      // Obtener la llamada creada con información completa
+      const getLlamadaQuery = `
+        SELECT 
+          l.id_llamada,
+          l.usuario_id,
+          l.establecimiento_id,
+          l.mesa_id,
+          l.status,
+          l.creada_en,
+          u.nombre AS usuario_nombre,
+          m.numero_mesa
+        FROM llamadas l
+        INNER JOIN usuarios u ON l.usuario_id = u.id_user
+        INNER JOIN mesas m ON l.mesa_id = m.id_mesa
+        WHERE l.id_llamada = ?
       `;
       
-      db.query(insertQuery, [userId, establecimientoId, mesaId], (err, result) => {
+      db.query(getLlamadaQuery, [result.insertId], (err, llamadaResult) => {
         if (err) {
-          console.error('Error al crear llamada:', err);
-          return res.status(500).json({ error: 'Error al crear llamada' });
+          console.error('Error al obtener llamada creada:', err);
+          return res.status(500).json({ error: 'Llamada creada pero error al obtener datos' });
         }
         
-        // Obtener la llamada creada con información completa
-        const getLlamadaQuery = `
-          SELECT 
-            l.id_llamada,
-            l.usuario_id,
-            l.establecimiento_id,
-            l.mesa_id,
-            l.status,
-            l.creada_en,
-            u.nombre AS usuario_nombre,
-            m.numero_mesa
-          FROM llamadas l
-          INNER JOIN usuarios u ON l.usuario_id = u.id_user
-          INNER JOIN mesas m ON l.mesa_id = m.id_mesa
-          WHERE l.id_llamada = ?
-        `;
+        // Emitir evento de socket
+        const io = req.app.get('io');
+        if (io && llamadaResult[0]) {
+          console.log('🔔 Backend: Emitiendo llamada_created a establecimiento:', establecimientoId);
+          console.log('📋 Datos de llamada:', llamadaResult[0]);
+          io.to(`establecimiento:${establecimientoId}`).emit('llamada_created', llamadaResult[0]);
+          console.log('✅ Evento llamada_created emitido');
+        } else {
+          console.warn('⚠️ No se pudo emitir evento socket:', { io: !!io, data: !!llamadaResult[0] });
+        }
         
-        db.query(getLlamadaQuery, [result.insertId], (err, llamadaResult) => {
-          if (err) {
-            console.error('Error al obtener llamada creada:', err);
-            return res.status(500).json({ error: 'Llamada creada pero error al obtener datos' });
-          }
-          
-          // Emitir evento de socket
-          const io = req.app.get('io');
-          if (io && llamadaResult[0]) {
-            console.log('🔔 Backend: Emitiendo llamada_created a establecimiento:', establecimientoId);
-            console.log('📋 Datos de llamada:', llamadaResult[0]);
-            io.to(`establecimiento:${establecimientoId}`).emit('llamada_created', llamadaResult[0]);
-            console.log('✅ Evento llamada_created emitido');
-          } else {
-            console.warn('⚠️ No se pudo emitir evento socket:', { io: !!io, data: !!llamadaResult[0] });
-          }
-          
-          res.status(201).json({
-            success: true,
-            mensaje: 'Llamada al mesero enviada',
-            llamada: llamadaResult[0]
-          });
+        res.status(201).json({
+          success: true,
+          mensaje: 'Llamada al mesero enviada',
+          llamada: llamadaResult[0]
         });
       });
     });

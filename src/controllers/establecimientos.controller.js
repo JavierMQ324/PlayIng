@@ -261,7 +261,7 @@ function deleteLastMesa(req, res) {
   });
 }
 
-// Expulsar usuarios del establecimiento: desvincular mesa y notificar por sockets
+// Expulsar usuarios del establecimiento: desvincular mesa, eliminar órdenes y llamadas
 function kickUsers(req, res) {
   ensureSchema();
   if (req.user?.roll !== 'admin') return res.status(403).json({ error: 'Solo administradores' });
@@ -271,18 +271,78 @@ function kickUsers(req, res) {
     return res.status(400).json({ error: 'user_ids requerido' });
   }
   const placeholders = user_ids.map(() => '?').join(',');
-  const sql = `
-    UPDATE usuarios u
-    JOIN mesas m ON m.id_mesa = u.mesa_id_activa
-    SET u.mesa_id_activa = NULL
-    WHERE m.establecimiento_id = ? AND u.id_user IN (${placeholders})
-  `;
-  db.query(sql, [id, ...user_ids], (err, result) => {
-    if (err) return res.status(500).json({ error: 'DB error' });
-    const io = req.app.get('io');
-    io.to(`establecimiento:${id}`).emit('establecimiento:clientes_actualizados');
-    user_ids.forEach((uid) => io.to(`user:${uid}`).emit('user:kicked'));
-    res.json({ success: true, affected: result?.affectedRows || 0 });
+  
+  // Paso 1: Obtener llamadas pendientes de estos usuarios ANTES de eliminarlas
+  const getLlamadasSql = `SELECT id_llamada FROM llamadas WHERE usuario_id IN (${placeholders}) AND establecimiento_id = ? AND status = 'pendiente'`;
+  db.query(getLlamadasSql, [...user_ids, id], (err0, llamadasResult) => {
+    if (err0) {
+      console.error('Error obteniendo llamadas:', err0);
+      return res.status(500).json({ error: 'DB error al obtener llamadas' });
+    }
+    
+    const llamadasIds = llamadasResult.map(l => l.id_llamada);
+    
+    // Paso 2: Obtener órdenes pendientes de estos usuarios ANTES de eliminarlas
+    const getOrdenesSql = `SELECT id_orden FROM ordenes WHERE usuario_id IN (${placeholders})`;
+    db.query(getOrdenesSql, user_ids, (err0b, ordenesResult) => {
+      if (err0b) {
+        console.error('Error obteniendo órdenes:', err0b);
+        return res.status(500).json({ error: 'DB error al obtener órdenes' });
+      }
+      
+      const ordenesIds = ordenesResult.map(o => o.id_orden);
+      
+      // Paso 3: Eliminar llamadas pendientes de estos usuarios
+      const deleteLlamadasSql = `DELETE FROM llamadas WHERE usuario_id IN (${placeholders}) AND establecimiento_id = ?`;
+      db.query(deleteLlamadasSql, [...user_ids, id], (err1) => {
+        if (err1) {
+          console.error('Error eliminando llamadas:', err1);
+          return res.status(500).json({ error: 'DB error al eliminar llamadas' });
+        }
+        
+        // Paso 4: Eliminar órdenes de estos usuarios
+        const deleteOrdenesSql = `DELETE FROM ordenes WHERE usuario_id IN (${placeholders})`;
+        db.query(deleteOrdenesSql, user_ids, (err1b) => {
+          if (err1b) {
+            console.error('Error eliminando órdenes:', err1b);
+            return res.status(500).json({ error: 'DB error al eliminar órdenes' });
+          }
+          
+          // Paso 5: Desvincular mesa de los usuarios
+          const updateUserSql = `
+            UPDATE usuarios u
+            JOIN mesas m ON m.id_mesa = u.mesa_id_activa
+            SET u.mesa_id_activa = NULL
+            WHERE m.establecimiento_id = ? AND u.id_user IN (${placeholders})
+          `;
+          db.query(updateUserSql, [id, ...user_ids], (err2, result) => {
+            if (err2) {
+              console.error('Error desvinculando usuarios:', err2);
+              return res.status(500).json({ error: 'DB error al desvincular usuarios' });
+            }
+            
+            // Paso 6: Emitir eventos de socket
+            const io = req.app.get('io');
+            io.to(`establecimiento:${id}`).emit('establecimiento:clientes_actualizados');
+            user_ids.forEach((uid) => {
+              io.to(`user:${uid}`).emit('user:kicked');
+            });
+            
+            // Emitir evento de llamada_atendida para cada llamada eliminada
+            llamadasIds.forEach((llamadaId) => {
+              io.to(`establecimiento:${id}`).emit('llamada_atendida', { id_llamada: llamadaId });
+            });
+            
+            // Emitir evento de ordenes_deleted para las órdenes eliminadas
+            if (ordenesIds.length > 0) {
+              io.to(`establecimiento:${id}`).emit('ordenes_deleted', { ids: ordenesIds });
+            }
+            
+            res.json({ success: true, affected: result?.affectedRows || 0 });
+          });
+        });
+      });
+    });
   });
 }
 
