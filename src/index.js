@@ -8,13 +8,25 @@ const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server, { cors: { origin: true, credentials: true } });
 const db = require('./db'); 
+const allowedOrigins = [
+  'http://localhost:4200',
+  'https://tu-angular.vercel.app'
+];
 require('dotenv').config({ path: './src/.env' });
+
 
 // Middleware
 app.use(express.json());
 
 app.use(cors({
-  origin: true, // Permitir todos los orígenes temporalmente
+  origin: function(origin, callback){
+    if(!origin) return callback(null, true); // Postman, CURL, etc.
+    if(allowedOrigins.indexOf(origin) === -1){
+      const msg = `El CORS policy no permite ${origin}`;
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -31,6 +43,7 @@ const configuracionRoutes = require('./routes/configuracion.routes');
 const lyricsRoutes = require('./routes/lyrics.routes');
 const ordenesRoutes = require('./routes/ordenes.routes');
 const llamadasRoutes = require('./routes/llamadas.routes');
+
 
 // Middleware de logging
 app.use((req, res, next) => {
