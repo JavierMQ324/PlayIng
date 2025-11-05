@@ -10,6 +10,9 @@ const io = new Server(server, { cors: { origin: true, credentials: true } });
 const db = require('./db'); 
 const allowedOrigins = [
   'http://localhost:4200',
+  'http://localhost:3000',
+  'http://127.0.0.1:4200',
+  'http://127.0.0.1:3000',
   'https://tu-angular.vercel.app'
 ];
 require('dotenv').config({ path: './src/.env' });
@@ -20,8 +23,17 @@ app.use(express.json());
 
 app.use(cors({
   origin: function(origin, callback){
-    if(!origin) return callback(null, true); // Postman, CURL, etc.
+    // Permitir requests sin origen (Postman, CURL, etc.)
+    if(!origin) return callback(null, true);
+    
+    // En desarrollo, permitir cualquier localhost
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Verificar si está en la lista de orígenes permitidos
     if(allowedOrigins.indexOf(origin) === -1){
+      console.log(`⚠️ CORS: Origen no permitido: ${origin}`);
       const msg = `El CORS policy no permite ${origin}`;
       return callback(new Error(msg), false);
     }
