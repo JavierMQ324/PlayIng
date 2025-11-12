@@ -10,7 +10,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 3306,
   waitForConnections: true,
-  connectionLimit: 10, // Máximo de conexiones en el pool
+  connectionLimit: 3, // Máximo de conexiones en el pool (reducido para BD gratuita con límite de 5)
   queueLimit: 0, // Sin límite en la cola de conexiones
   enableKeepAlive: true, // Mantener conexiones vivas
   keepAliveInitialDelay: 0, // Iniciar keep-alive inmediatamente

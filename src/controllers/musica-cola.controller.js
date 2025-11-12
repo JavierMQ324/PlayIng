@@ -1169,7 +1169,7 @@ class MusicaColaController {
   static reorderQueue(req, res) {
     const { cancionId, nuevaPosicion, establecimientoId } = req.body;
 
-    if (!cancionId || !nuevaPosicion || !establecimientoId) {
+    if (!cancionId || nuevaPosicion === undefined || !establecimientoId) {
       return res.status(400).json({
         success: false,
         error: 'cancionId, nuevaPosicion and establecimientoId are required'
@@ -1180,7 +1180,7 @@ class MusicaColaController {
 
     // Obtener toda la cola actual
     db.query(
-      'SELECT id, posicion FROM cola_cancion WHERE establecimiento_id = ? ORDER BY posicion ASC',
+      'SELECT id, posicion FROM cola_cancion WHERE establecimiento_id = ? AND status != "history" ORDER BY posicion ASC',
       [establecimientoId],
       (err, allSongs) => {
         if (err) {
@@ -1188,6 +1188,13 @@ class MusicaColaController {
           return res.status(500).json({
             success: false,
             error: 'Failed to reorder queue'
+          });
+        }
+
+        if (allSongs.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Queue is empty'
           });
         }
 
@@ -1206,67 +1213,110 @@ class MusicaColaController {
         console.log(`📍 Moving from position ${posicionActual} to ${nuevaPosicion}`);
         console.log(`📋 Current queue has ${allSongs.length} songs`);
 
-        // Encontrar el índice donde queremos insertar (basado en la posición objetivo)
-        const targetIndex = allSongs.findIndex(s => s.posicion === nuevaPosicion);
-        
-        if (targetIndex === -1) {
-          console.error('Target position not found');
+        // Validar que nuevaPosicion esté en el rango válido
+        if (nuevaPosicion < 1 || nuevaPosicion > allSongs.length) {
           return res.status(400).json({
             success: false,
-            error: 'Invalid target position'
+            error: `Invalid target position. Must be between 1 and ${allSongs.length}`
           });
         }
 
-        console.log(`🎯 Target index in array: ${targetIndex}`);
-
-        // Remover la canción de su posición actual
+        // Remover la canción de su posición actual primero
         allSongs.splice(songToMoveIndex, 1);
+        
+        // Calcular el índice objetivo después de remover
+        // nuevaPosicion es 1-based, necesitamos índice 0-based
+        let targetIndex;
+        
+        if (posicionActual < nuevaPosicion) {
+          // Moviendo hacia adelante: queremos que la canción quede en la posición nuevaPosicion
+          // Después de remover, buscamos la canción que tiene posición nuevaPosicion
+          // e insertamos DESPUÉS de ella, así cuando renumeremos nuestra canción quedará en nuevaPosicion
+          const targetSongIndex = allSongs.findIndex(s => s.posicion === nuevaPosicion);
+          if (targetSongIndex !== -1) {
+            // Insertar después de la canción objetivo
+            targetIndex = targetSongIndex + 1;
+          } else {
+            // Si no encontramos exactamente nuevaPosicion, buscar la primera >= nuevaPosicion
+            const nextIndex = allSongs.findIndex(s => s.posicion >= nuevaPosicion);
+            targetIndex = nextIndex !== -1 ? nextIndex : allSongs.length;
+          }
+        } else {
+          // Moviendo hacia atrás: queremos insertar antes de la posición nuevaPosicion
+          const targetSongIndex = allSongs.findIndex(s => s.posicion === nuevaPosicion);
+          if (targetSongIndex !== -1) {
+            // Insertar antes de la canción objetivo
+            targetIndex = targetSongIndex;
+          } else {
+            // Si no encontramos, buscar la primera canción con posición >= nuevaPosicion
+            const nextSongIndex = allSongs.findIndex(s => s.posicion >= nuevaPosicion);
+            targetIndex = nextSongIndex !== -1 ? nextSongIndex : allSongs.length;
+          }
+        }
+
+        // Asegurar que el índice esté en el rango válido
+        targetIndex = Math.max(0, Math.min(targetIndex, allSongs.length));
+        
+        console.log(`🎯 Target index in array: ${targetIndex} (after removal, moving from ${posicionActual} to ${nuevaPosicion})`);
         
         // Insertar en la nueva posición
         allSongs.splice(targetIndex, 0, songToMove);
 
         console.log(`✅ New order (by song ID): [${allSongs.map(s => s.id).join(', ')}]`);
 
-        // Actualizar todas las posiciones en la base de datos
-        let completed = 0;
-        const totalUpdates = allSongs.length;
-        let hadError = false;
+        if (allSongs.length === 0) {
+          return res.json({
+            success: true,
+            message: 'Queue reordered successfully'
+          });
+        }
 
+        // Construir una sola query con CASE WHEN para actualizar todas las posiciones de una vez
+        // Esto reduce el número de conexiones necesarias de N queries a 1 sola query
+        let caseStatements = [];
+        let params = [];
+        
         allSongs.forEach((song, index) => {
-          const newPosition = index + 1; // Las posiciones empiezan en 1
+          const newPosition = index + 1;
+          caseStatements.push(`WHEN ? THEN ?`);
+          params.push(song.id, newPosition);
+        });
+        
+        const ids = allSongs.map(s => s.id);
+        const placeholders = ids.map(() => '?').join(',');
+        const query = `
+          UPDATE cola_cancion 
+          SET posicion = CASE id 
+            ${caseStatements.join(' ')}
+            ELSE posicion
+          END
+          WHERE id IN (${placeholders})
+        `;
+        
+        params.push(...ids);
+        
+        db.query(query, params, (err) => {
+          if (err) {
+            console.error('Error updating positions:', err);
+            return res.status(500).json({
+              success: false,
+              error: 'Failed to reorder queue'
+            });
+          }
           
-          db.query(
-            'UPDATE cola_cancion SET posicion = ? WHERE id = ?',
-            [newPosition, song.id],
-            (err) => {
-              if (err && !hadError) {
-                hadError = true;
-                console.error('Error updating position:', err);
-                return res.status(500).json({
-                  success: false,
-                  error: 'Failed to reorder queue'
-                });
-              }
-              
-              completed++;
-              
-              if (completed === totalUpdates && !hadError) {
-                console.log(`✅ Queue reordered successfully! Updated ${completed} songs`);
-                
-                // 📡 Emitir evento de socket para notificar a todos los clientes
-                const socketService = req.app.get('socketService');
-                if (socketService) {
-                  console.log(`📡 Emitiendo queue_update para establecimiento ${establecimientoId}`);
-                  socketService.emitQueueUpdate(establecimientoId);
-                }
-                
-                res.json({
-                  success: true,
-                  message: 'Queue reordered successfully'
-                });
-              }
-            }
-          );
+          console.log(`✅ Queue reordered successfully! Updated ${allSongs.length} songs`);
+          
+          // 📡 Emitir evento de socket para notificar a todos los clientes
+          const socketService = req.app.get('socketService');
+          if (socketService) {
+            console.log(`📡 Emitiendo queue_update para establecimiento ${establecimientoId}`);
+            socketService.emitQueueUpdate(establecimientoId);
+          }
+          
+          res.json({
+            success: true,
+            message: 'Queue reordered successfully'
+          });
         });
       }
     );
