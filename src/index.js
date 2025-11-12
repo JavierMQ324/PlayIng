@@ -15,6 +15,12 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'https://tu-angular.vercel.app'
 ];
+
+// Función para verificar si es un dominio ngrok
+const isNgrokDomain = (origin) => {
+  if (!origin) return false;
+  return origin.includes('.ngrok-free.app') || origin.includes('.ngrok.io') || origin.includes('.ngrok.app');
+};
 require('dotenv').config({ path: './src/.env' });
 
 
@@ -23,11 +29,16 @@ app.use(express.json());
 
 app.use(cors({
   origin: function(origin, callback){
-    // Permitir requests sin origen (Postman, CURL, etc.)
+    // Permitir requests sin origen (Postman, CURL, mobile apps, etc.)
     if(!origin) return callback(null, true);
     
     // En desarrollo, permitir cualquier localhost
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Permitir dominios ngrok (para desarrollo remoto)
+    if (isNgrokDomain(origin)) {
       return callback(null, true);
     }
     
@@ -41,7 +52,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'User-Agent']
 }));
 
 // Importar rutas
