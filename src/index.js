@@ -75,16 +75,100 @@ app.use('/api/lyrics', lyricsRoutes);
 app.use('/api/ordenes', ordenesRoutes);
 app.use('/api/llamadas', llamadasRoutes);
 
+// Almacenamiento temporal de códigos de autenticación (en producción usar Redis)
+const authCodes = new Map();
+
+// Ruta para iniciar sesión - genera un ID de sesión
+app.get('/auth/start', (req, res) => {
+  const sessionId = `auth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  authCodes.set(sessionId, { code: null, timestamp: Date.now() });
+  
+  // Limpiar códigos antiguos (más de 5 minutos)
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+  for (const [key, value] of authCodes.entries()) {
+    if (value.timestamp < fiveMinutesAgo) {
+      authCodes.delete(key);
+    }
+  }
+  
+  res.json({ sessionId, success: true });
+});
+
+// Ruta para verificar si hay código disponible
+app.get('/auth/check/:sessionId', (req, res) => {
+  const { sessionId } = req.params;
+  const authData = authCodes.get(sessionId);
+  
+  if (authData && authData.code) {
+    const code = authData.code;
+    authCodes.delete(sessionId); // Eliminar después de usar
+    res.json({ success: true, code });
+  } else {
+    res.json({ success: false, code: null });
+  }
+});
+
 // Ruta de callback para OAuth móvil
 app.get('/auth/callback', (req, res) => {
-  const { code } = req.query;
-  console.log('Callback móvil recibido:', { code });
-  if (code) {
-    // Redirigir a la app móvil con el código
-    const mobileAppUrl = process.env.MOBILE_APP_URL || 'exp://localhost:8081';
-    res.redirect(`${mobileAppUrl}/--/auth?code=${code}`);
-  } else {
+  const { code, state } = req.query;
+  console.log('Callback móvil recibido:', { code, state });
+  
+  if (!code) {
     res.status(400).send('Código de autorización no encontrado');
+    return;
+  }
+  
+  // Si hay state, es Android (método de polling)
+  if (state) {
+    const authData = authCodes.get(state);
+    if (authData) {
+      authData.code = code;
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Autenticación exitosa</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: #000;
+                color: #fff;
+              }
+              .container {
+                text-align: center;
+                padding: 20px;
+              }
+              .success {
+                font-size: 24px;
+                margin-bottom: 20px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="success">✅ Autenticación exitosa</div>
+              <p>Puedes cerrar esta ventana y volver a la app.</p>
+            </div>
+            <script>
+              // No intentar cerrar automáticamente, solo mostrar mensaje
+            </script>
+          </body>
+        </html>
+      `);
+    } else {
+      res.status(400).send('Sesión no encontrada o expirada');
+    }
+  } else {
+    // iOS: redirigir directamente al deep link (método original)
+    const mobileAppUrl = process.env.MOBILE_APP_URL || 'playingmovil://auth/callback';
+    res.redirect(`${mobileAppUrl}?code=${encodeURIComponent(code)}`);
   }
 });
 
@@ -138,7 +222,7 @@ server.listen(PORT, '0.0.0.0', () => {
   const publicBaseUrl = process.env.SERVER_PUBLIC_URL || `http://0.0.0.0:${PORT}`;
   console.log(`Servidor escuchando en ${publicBaseUrl}`);
   console.log(`Admin app URL: ${process.env.ADMIN_APP_URL || 'http://localhost:4200'}`);
-  console.log(`Mobile app URL: ${process.env.MOBILE_APP_URL || 'exp://localhost:8081'}`);
+  console.log(`Mobile app URL: ${process.env.MOBILE_APP_URL || 'playingmovil://auth/callback'}`);
 });
 
 // Inicializar Socket Service
