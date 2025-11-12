@@ -163,18 +163,30 @@ const updateOrdenStatus = (req, res) => {
       return res.status(404).json({ error: 'Orden no encontrada' });
     }
 
-    // Emitir evento de socket
-    const io = req.app.get('io');
-    if (io) {
-      const establecimientoId = req.body.establecimientoId;
-      if (establecimientoId) {
-        io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { id, status });
+    // Obtener la orden con el usuario_id para el evento de socket
+    const getOrdenQuery = 'SELECT usuario_id FROM ordenes WHERE id_orden = ?';
+    db.query(getOrdenQuery, [id], (err, ordenResult) => {
+      if (err) {
+        console.error('Error al obtener usuario_id de la orden:', err);
       }
-    }
 
-    res.json({ 
-      success: true, 
-      mensaje: 'Estado de orden actualizado'
+      // Emitir evento de socket con usuario_id
+      const io = req.app.get('io');
+      if (io && ordenResult && ordenResult[0]) {
+        const establecimientoId = req.body.establecimientoId;
+        if (establecimientoId) {
+          io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { 
+            id, 
+            status,
+            usuario_id: ordenResult[0].usuario_id 
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        mensaje: 'Estado de orden actualizado'
+      });
     });
   });
 };
@@ -202,18 +214,30 @@ const updateOrdenTiempo = (req, res) => {
       return res.status(404).json({ error: 'Orden no encontrada' });
     }
 
-    // Emitir evento de socket
-    const io = req.app.get('io');
-    if (io) {
-      const establecimientoId = req.body.establecimientoId;
-      if (establecimientoId) {
-        io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { id, ajuste });
+    // Obtener la orden actualizada con todos los datos para el evento de socket
+    const getOrdenQuery = 'SELECT usuario_id, tiempo_anadido FROM ordenes WHERE id_orden = ?';
+    db.query(getOrdenQuery, [id], (err, ordenResult) => {
+      if (err) {
+        console.error('Error al obtener datos de la orden:', err);
       }
-    }
 
-    res.json({ 
-      success: true, 
-      mensaje: 'Tiempo de orden actualizado'
+      // Emitir evento de socket con los valores actualizados
+      const io = req.app.get('io');
+      if (io && ordenResult && ordenResult[0]) {
+        const establecimientoId = req.body.establecimientoId;
+        if (establecimientoId) {
+          io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { 
+            id, 
+            tiempo_anadido: ordenResult[0].tiempo_anadido,
+            usuario_id: ordenResult[0].usuario_id 
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        mensaje: 'Tiempo de orden actualizado'
+      });
     });
   });
 };
@@ -226,28 +250,48 @@ const deleteOrdenes = (req, res) => {
     return res.status(400).json({ error: 'IDs de órdenes requeridos' });
   }
 
+  // Primero obtener los usuario_id de las órdenes que se van a eliminar
   const placeholders = ids.map(() => '?').join(',');
-  const query = `DELETE FROM ordenes WHERE id_orden IN (${placeholders})`;
-
-  db.query(query, ids, (err, result) => {
+  const getOrdenesQuery = `SELECT id_orden, usuario_id FROM ordenes WHERE id_orden IN (${placeholders})`;
+  
+  db.query(getOrdenesQuery, ids, (err, ordenesResult) => {
     if (err) {
-      console.error('Error al eliminar órdenes:', err);
-      return res.status(500).json({ error: 'Error al eliminar órdenes' });
+      console.error('Error al obtener órdenes a eliminar:', err);
+      return res.status(500).json({ error: 'Error al obtener órdenes a eliminar' });
     }
 
-    // Emitir evento de socket
-    const io = req.app.get('io');
-    if (io) {
-      const establecimientoId = req.body.establecimientoId;
-      if (establecimientoId) {
-        io.to(`establecimiento:${establecimientoId}`).emit('ordenes_deleted', { ids });
+    // Crear un mapa de id_orden a usuario_id
+    const ordenesUsuarios = ordenesResult.reduce((acc, orden) => {
+      acc[orden.id_orden] = orden.usuario_id;
+      return acc;
+    }, {});
+
+    // Ahora eliminar las órdenes
+    const deleteQuery = `DELETE FROM ordenes WHERE id_orden IN (${placeholders})`;
+
+    db.query(deleteQuery, ids, (err, result) => {
+      if (err) {
+        console.error('Error al eliminar órdenes:', err);
+        return res.status(500).json({ error: 'Error al eliminar órdenes' });
       }
-    }
 
-    res.json({ 
-      success: true, 
-      mensaje: `${result.affectedRows} orden(es) eliminada(s)`,
-      deletedCount: result.affectedRows
+      // Emitir evento de socket con los usuario_id
+      const io = req.app.get('io');
+      if (io) {
+        const establecimientoId = req.body.establecimientoId;
+        if (establecimientoId) {
+          io.to(`establecimiento:${establecimientoId}`).emit('ordenes_deleted', { 
+            ids,
+            usuarios: ordenesUsuarios // Mapa de id_orden -> usuario_id
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        mensaje: `${result.affectedRows} orden(es) eliminada(s)`,
+        deletedCount: result.affectedRows
+      });
     });
   });
 };
