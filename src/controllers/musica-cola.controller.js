@@ -113,8 +113,6 @@ class MusicaColaController {
       });
     }
 
-    console.log(`Adding song to queue: ${titulo} by ${artista}`);
-
     // Verificar el rol del usuario
     db.query(
       'SELECT roll FROM usuarios WHERE id_user = ?',
@@ -452,8 +450,6 @@ class MusicaColaController {
       });
     }
 
-    console.log(`Getting queue for establecimiento: ${establecimientoId}`);
-
     db.query(
       `SELECT 
         cc.id,
@@ -622,9 +618,6 @@ class MusicaColaController {
       });
     }
 
-    console.log(`Setting current playing: ${colaId} for establecimiento: ${establecimientoId}`);
-    
-    // Obtener socketService del app
     const socketService = req.app.get('socketService');
 
     // Primero, obtener todas las canciones con status "playing" en este establecimiento
@@ -660,8 +653,6 @@ class MusicaColaController {
                     console.error('Error deleting from queue:', err);
                     return callback(err);
                   }
-                  console.log(`Moved item ${item.id} to history`);
-                  
                   // 📡 Emitir eventos de actualización de historial Y cola
                   if (socketService) {
                     socketService.emitHistoryUpdate(establecimientoId);
@@ -713,15 +704,16 @@ class MusicaColaController {
                 });
               }
 
-              // ✅ Renumerar las posiciones después de todos los cambios
+              res.json({
+                success: true,
+                message: 'Current playing set successfully'
+              });
+
               MusicaColaController.reorderQueuePositions(establecimientoId, (err) => {
                 if (err) {
                   console.error('Error reordering positions after setting playing:', err);
                 }
 
-                console.log(`Set item ${colaId} as current playing`);
-                
-                // 📡 Obtener información de la canción y emitir evento de socket
                 db.query(
                   `SELECT 
                     cc.id,
@@ -781,11 +773,6 @@ class MusicaColaController {
                       });
                       socketService.emitQueueUpdate(establecimientoId);
                     }
-                    
-                    res.json({
-                      success: true,
-                      message: 'Current playing set successfully'
-                    });
                   }
                 );
               });
@@ -896,8 +883,6 @@ class MusicaColaController {
       });
     }
 
-    console.log(`Getting history for establecimiento: ${establecimientoId}`);
-
     db.query(
       `SELECT 
         hr.id_historial,
@@ -963,8 +948,6 @@ class MusicaColaController {
         error: 'Missing required fields'
       });
     }
-
-    console.log(`Adding song to queue and playing now: ${titulo} by ${artista}`);
 
     // Primero, verificar si la canción ya existe en la tabla canciones
     db.query(
@@ -1129,7 +1112,6 @@ class MusicaColaController {
                             );
                           }
 
-                          console.log(`Song added to queue at position 1 and set as playing`);
                           res.json({
                             success: true,
                             message: 'Song added and playing',
@@ -1401,8 +1383,6 @@ class MusicaColaController {
         error: 'establecimientoId is required'
       });
     }
-
-    console.log(`Getting current playing for establecimiento: ${establecimientoId}`);
 
     db.query(
       `SELECT 

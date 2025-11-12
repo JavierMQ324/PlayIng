@@ -115,8 +115,6 @@ class SocketService {
   emitVotesUpdate(establecimientoId, colaCancionId, votes) {
     const room = `establecimiento:${establecimientoId}`;
     
-    console.log(`🔊 Emitiendo votes_update a sala ${room}:`, { colaCancionId, likes: votes.likes, skips: votes.skips });
-    
     this.io.to(room).emit('votes_update', {
       establecimientoId,
       colaCancionId,
