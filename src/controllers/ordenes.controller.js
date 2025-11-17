@@ -15,7 +15,10 @@ const getOrdenes = (req, res) => {
       o.creada_en,
       o.actualizado_en,
       u.id_user AS usuario_id,
-      u.nombre AS usuario_nombre,
+      CASE 
+        WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+        ELSE 'Anónimo' 
+      END AS usuario_nombre,
       m.id_mesa AS mesa_id,
       m.numero_mesa AS mesa_numero
     FROM ordenes o
@@ -48,7 +51,10 @@ const getUsuariosActivos = (req, res) => {
   const query = `
     SELECT 
       u.id_user,
-      u.nombre,
+      CASE 
+        WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+        ELSE 'Anónimo' 
+      END AS nombre,
       u.email,
       m.id_mesa,
       m.numero_mesa
@@ -102,7 +108,10 @@ const createOrden = (req, res) => {
         o.creada_en,
         o.actualizado_en,
         u.id_user AS usuario_id,
-        u.nombre AS usuario_nombre,
+        CASE 
+          WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+          ELSE NULL 
+        END AS usuario_nombre,
         m.id_mesa AS mesa_id,
         m.numero_mesa AS mesa_numero
       FROM ordenes o
@@ -303,7 +312,10 @@ const getEstadoOrdenesUsuarios = (req, res) => {
   const query = `
     SELECT 
       u.id_user,
-      u.nombre,
+      CASE 
+        WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+        ELSE 'Anónimo' 
+      END AS nombre,
       m.numero_mesa,
       COUNT(o.id_orden) as total_ordenes,
       COALESCE(SUM(CASE WHEN o.status IN ('pendiente', 'en_preparacion') THEN 1 ELSE 0 END), 0) as ordenes_pendientes,
@@ -312,7 +324,7 @@ const getEstadoOrdenesUsuarios = (req, res) => {
     INNER JOIN mesas m ON u.mesa_id_activa = m.id_mesa
     LEFT JOIN ordenes o ON u.id_user = o.usuario_id
     WHERE m.establecimiento_id = ? AND u.roll = 'cliente'
-    GROUP BY u.id_user, u.nombre, m.numero_mesa
+    GROUP BY u.id_user, u.mostrar_nombre, u.nombre, m.numero_mesa
     ORDER BY m.numero_mesa ASC
   `;
 

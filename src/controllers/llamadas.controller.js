@@ -47,7 +47,10 @@ const createLlamada = (req, res) => {
           l.mesa_id,
           l.status,
           l.creada_en,
-          u.nombre AS usuario_nombre,
+          CASE 
+            WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+            ELSE 'Anónimo' 
+          END AS usuario_nombre,
           m.numero_mesa
         FROM llamadas l
         INNER JOIN usuarios u ON l.usuario_id = u.id_user
@@ -94,7 +97,10 @@ const getLlamadasPendientes = (req, res) => {
       l.mesa_id,
       l.status,
       l.creada_en,
-      u.nombre AS usuario_nombre,
+      CASE 
+        WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+        ELSE 'Anónimo' 
+      END AS usuario_nombre,
       m.numero_mesa
     FROM llamadas l
     INNER JOIN usuarios u ON l.usuario_id = u.id_user

@@ -52,8 +52,8 @@ const createOrUpdateUser = async (googleUser, appType) => {
       } else {
         // Usuario nuevo, crear
         const insertQuery = `
-          INSERT INTO usuarios (google_id, nombre, email, roll, mesa_id_activa) 
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO usuarios (google_id, nombre, email, roll, mesa_id_activa, mostrar_nombre) 
+          VALUES (?, ?, ?, ?, ?, 1)
         `;
         const mesaId = roll === 'cliente' ? null : null;
         
@@ -69,6 +69,7 @@ const createOrUpdateUser = async (googleUser, appType) => {
             email,
             roll,
             mesa_id_activa: mesaId,
+            mostrar_nombre: 1,
             creada_en: new Date()
           });
         });
@@ -226,10 +227,13 @@ const getProfile = (req, res) => {
   if (!userId) {
     return res.status(401).json({ success: false, error: 'No autenticado' });
   }
-  db.query('SELECT id_user AS id, nombre, email, roll, mesa_id_activa FROM usuarios WHERE id_user = ? LIMIT 1', [userId], (err, rows) => {
+  db.query('SELECT id_user AS id, nombre, email, roll, mesa_id_activa, COALESCE(mostrar_nombre, 1) AS mostrar_nombre FROM usuarios WHERE id_user = ? LIMIT 1', [userId], (err, rows) => {
     if (err) return res.status(500).json({ success: false, error: 'DB error' });
     if (!rows || !rows[0]) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-    res.json({ success: true, user: rows[0] });
+    // Convertir mostrar_nombre a boolean
+    const user = rows[0];
+    user.mostrar_nombre = user.mostrar_nombre === 1 || user.mostrar_nombre === true;
+    res.json({ success: true, user });
   });
 };
 
@@ -240,18 +244,40 @@ const updateProfile = (req, res) => {
     return res.status(401).json({ success: false, error: 'No autenticado' });
   }
 
-  const { nombre } = req.body;
+  const { nombre, mostrar_nombre } = req.body;
   
-  if (!nombre || !nombre.trim()) {
-    return res.status(400).json({ success: false, error: 'El nombre es requerido' });
+  // Construir la query dinámicamente basada en los campos proporcionados
+  const updates = [];
+  const values = [];
+  
+  if (nombre !== undefined) {
+    if (!nombre || !nombre.trim()) {
+      return res.status(400).json({ success: false, error: 'El nombre no puede estar vacío' });
+    }
+    // Validar longitud del nombre
+    if (nombre.trim().length > 100) {
+      return res.status(400).json({ success: false, error: 'El nombre es demasiado largo' });
+    }
+    updates.push('nombre = ?');
+    values.push(nombre.trim());
   }
-
-  // Validar longitud del nombre
-  if (nombre.trim().length > 100) {
-    return res.status(400).json({ success: false, error: 'El nombre es demasiado largo' });
+  
+  if (mostrar_nombre !== undefined) {
+    // Convertir boolean a TINYINT (1 o 0)
+    const mostrarNombreValue = mostrar_nombre === true || mostrar_nombre === 1 || mostrar_nombre === '1' ? 1 : 0;
+    updates.push('mostrar_nombre = ?');
+    values.push(mostrarNombreValue);
   }
-
-  db.query('UPDATE usuarios SET nombre = ? WHERE id_user = ?', [nombre.trim(), userId], (err, result) => {
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ success: false, error: 'No se proporcionaron campos para actualizar' });
+  }
+  
+  values.push(userId);
+  
+  const updateQuery = `UPDATE usuarios SET ${updates.join(', ')} WHERE id_user = ?`;
+  
+  db.query(updateQuery, values, (err, result) => {
     if (err) {
       console.error('Error actualizando perfil:', err);
       return res.status(500).json({ success: false, error: 'Error al actualizar el perfil' });
@@ -261,11 +287,39 @@ const updateProfile = (req, res) => {
       return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     }
 
-    // Obtener el usuario actualizado
-    db.query('SELECT id_user AS id, nombre, email, roll, mesa_id_activa FROM usuarios WHERE id_user = ? LIMIT 1', [userId], (err, rows) => {
+    // Obtener el usuario actualizado y su establecimiento si tiene mesa activa
+    db.query('SELECT id_user AS id, nombre, email, roll, mesa_id_activa, COALESCE(mostrar_nombre, 1) AS mostrar_nombre FROM usuarios WHERE id_user = ? LIMIT 1', [userId], (err, rows) => {
       if (err) return res.status(500).json({ success: false, error: 'DB error' });
       if (!rows || !rows[0]) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-      res.json({ success: true, user: rows[0], mensaje: 'Perfil actualizado correctamente' });
+      // Convertir mostrar_nombre a boolean
+      const user = rows[0];
+      user.mostrar_nombre = user.mostrar_nombre === 1 || user.mostrar_nombre === true;
+      
+      // Si se actualizó mostrar_nombre, emitir evento de socket para actualizar listas
+      if (mostrar_nombre !== undefined && user.mesa_id_activa) {
+        // Obtener el establecimiento_id desde la mesa
+        db.query('SELECT establecimiento_id FROM mesas WHERE id_mesa = ? LIMIT 1', [user.mesa_id_activa], (err, mesaRows) => {
+          if (!err && mesaRows && mesaRows[0]) {
+            const establecimientoId = mesaRows[0].establecimiento_id;
+            const io = req.app.get('io');
+            if (io) {
+              // Emitir eventos para actualizar cola e historial
+              const socketService = req.app.get('socketService');
+              if (socketService) {
+                socketService.emitQueueUpdate(establecimientoId);
+                socketService.emitHistoryUpdate(establecimientoId);
+                console.log(`📡 Emitido evento de actualización de privacidad para establecimiento ${establecimientoId}`);
+              }
+              // Emitir evento para actualizar usuarios y órdenes
+              io.to(`establecimiento:${establecimientoId}`).emit('establecimiento:clientes_actualizados');
+              console.log(`📡 Emitido evento establecimiento:clientes_actualizados para actualizar usuarios y órdenes`);
+            }
+          }
+          res.json({ success: true, user, mensaje: 'Perfil actualizado correctamente' });
+        });
+      } else {
+        res.json({ success: true, user, mensaje: 'Perfil actualizado correctamente' });
+      }
     });
   });
 };

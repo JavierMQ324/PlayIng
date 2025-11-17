@@ -466,7 +466,10 @@ class MusicaColaController {
         c.imagen_url,
         c.genero,
         c.preview_url,
-        u.nombre as usuario_nombre
+        CASE 
+          WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+          ELSE NULL 
+        END as usuario_nombre
        FROM cola_cancion cc
        INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
        INNER JOIN usuarios u ON cc.anadido_por = u.id_user
@@ -730,7 +733,10 @@ class MusicaColaController {
                     c.imagen_url,
                     c.genero,
                     c.preview_url,
-                    u.nombre as usuario_nombre,
+                    CASE 
+                      WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+                      ELSE NULL 
+                    END as usuario_nombre,
                     (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
                     (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
                    FROM cola_cancion cc
@@ -898,7 +904,10 @@ class MusicaColaController {
         c.imagen_url,
         c.genero,
         c.preview_url,
-        u.nombre as usuario_nombre
+        CASE 
+          WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+          ELSE NULL 
+        END as usuario_nombre
        FROM historial_reproduccion hr
        INNER JOIN canciones c ON hr.cancion_id = c.id_cancion
        INNER JOIN usuarios u ON hr.usuario_id = u.id_user
@@ -1059,7 +1068,10 @@ class MusicaColaController {
                                 c.imagen_url,
                                 c.genero,
                                 c.preview_url,
-                                u.nombre as usuario_nombre,
+                                CASE 
+                                  WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+                                  ELSE NULL 
+                                END as usuario_nombre,
                                 (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
                                 (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
                                FROM cola_cancion cc
@@ -1356,7 +1368,10 @@ class MusicaColaController {
         c.imagen_url,
         c.genero,
         c.preview_url,
-        u.nombre as usuario_nombre,
+        CASE 
+          WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+          ELSE NULL 
+        END as usuario_nombre,
         (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
         (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
        FROM cola_cancion cc
@@ -1450,7 +1465,10 @@ class MusicaColaController {
         c.imagen_url,
         c.genero,
         c.preview_url,
-        u.nombre as usuario_nombre,
+        CASE 
+          WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+          ELSE 'Anónimo' 
+        END as usuario_nombre,
         (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
         (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
        FROM cola_cancion cc
