@@ -324,6 +324,7 @@ function kickUsers(req, res) {
             // Paso 6: Emitir eventos de socket
             const io = req.app.get('io');
             io.to(`establecimiento:${id}`).emit('establecimiento:clientes_actualizados');
+            io.to(`establecimiento:${id}`).emit('establecimiento:mesas_actualizadas');
             user_ids.forEach((uid) => {
               io.to(`user:${uid}`).emit('user:kicked');
             });
