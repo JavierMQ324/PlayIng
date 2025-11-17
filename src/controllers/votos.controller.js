@@ -143,11 +143,15 @@ class VotosController {
                       }
 
                       const totalUsers = activeUsersResult[0].count || 1;
-                      const skipThreshold = Math.ceil(totalUsers / 2); // Mayoría simple
+                      // Mayoría simple: más de la mitad de los usuarios
+                      // Con 2 usuarios: necesita 2 votos (más de 1)
+                      // Con 3 usuarios: necesita 2 votos (más de 1.5)
+                      // Con 4 usuarios: necesita 3 votos (más de 2)
+                      const skipThreshold = totalUsers === 1 ? 1 : Math.floor(totalUsers / 2) + 1;
 
                       console.log(`📊 Votos skip: ${skips}/${skipThreshold} (${totalUsers} usuarios activos)`);
 
-                      // Permitir skip incluso con 1 usuario (para testing y UX)
+                      // Solo permitir skip si se alcanza la mayoría
                       if (skips >= skipThreshold) {
                         console.log(`⏭️ Skip automático activado para cola_cancion ${colaCancionId}`);
                         console.log(`📡 Emitiendo evento skip_now al layout para que ejecute nextTrack()`);
