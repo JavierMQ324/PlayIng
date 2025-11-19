@@ -172,14 +172,14 @@ const updateOrdenStatus = (req, res) => {
       return res.status(404).json({ error: 'Orden no encontrada' });
     }
 
-    // Obtener la orden con el usuario_id para el evento de socket
-    const getOrdenQuery = 'SELECT usuario_id FROM ordenes WHERE id_orden = ?';
+    // Obtener la orden con el usuario_id y mesa_id para el evento de socket
+    const getOrdenQuery = 'SELECT usuario_id, mesa_id FROM ordenes WHERE id_orden = ?';
     db.query(getOrdenQuery, [id], (err, ordenResult) => {
       if (err) {
-        console.error('Error al obtener usuario_id de la orden:', err);
+        console.error('Error al obtener datos de la orden:', err);
       }
 
-      // Emitir evento de socket con usuario_id
+      // Emitir evento de socket con usuario_id y mesa_id
       const io = req.app.get('io');
       if (io && ordenResult && ordenResult[0]) {
         const establecimientoId = req.body.establecimientoId;
@@ -187,7 +187,8 @@ const updateOrdenStatus = (req, res) => {
           io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { 
             id, 
             status,
-            usuario_id: ordenResult[0].usuario_id 
+            usuario_id: ordenResult[0].usuario_id,
+            mesa_id: ordenResult[0].mesa_id
           });
         }
       }
@@ -224,7 +225,7 @@ const updateOrdenTiempo = (req, res) => {
     }
 
     // Obtener la orden actualizada con todos los datos para el evento de socket
-    const getOrdenQuery = 'SELECT usuario_id, tiempo_anadido FROM ordenes WHERE id_orden = ?';
+    const getOrdenQuery = 'SELECT usuario_id, tiempo_anadido, mesa_id FROM ordenes WHERE id_orden = ?';
     db.query(getOrdenQuery, [id], (err, ordenResult) => {
       if (err) {
         console.error('Error al obtener datos de la orden:', err);
@@ -238,7 +239,8 @@ const updateOrdenTiempo = (req, res) => {
           io.to(`establecimiento:${establecimientoId}`).emit('orden_updated', { 
             id, 
             tiempo_anadido: ordenResult[0].tiempo_anadido,
-            usuario_id: ordenResult[0].usuario_id 
+            usuario_id: ordenResult[0].usuario_id,
+            mesa_id: ordenResult[0].mesa_id
           });
         }
       }
@@ -403,6 +405,63 @@ const getOrdenesUsuario = (req, res) => {
   });
 };
 
+// Obtener las órdenes de la mesa activa del usuario actual (cliente móvil)
+const getOrdenesMesa = (req, res) => {
+  const userId = req.user.id_user || req.user.id; // Soportar ambos formatos
+  
+  // Primero obtener la mesa activa del usuario
+  const getMesaQuery = 'SELECT mesa_id_activa FROM usuarios WHERE id_user = ?';
+  
+  db.query(getMesaQuery, [userId], (err, userResults) => {
+    if (err) {
+      console.error('Error al obtener mesa del usuario:', err);
+      return res.status(500).json({ error: 'Error al obtener mesa del usuario' });
+    }
+    
+    if (!userResults[0] || !userResults[0].mesa_id_activa) {
+      return res.json({ success: true, ordenes: [] });
+    }
+    
+    const mesaId = userResults[0].mesa_id_activa;
+    
+    // Obtener todas las órdenes de esa mesa
+    const query = `
+      SELECT 
+        o.id_orden,
+        o.numero_orden,
+        o.status,
+        o.total_monto,
+        o.tiempo_estimado,
+        o.tiempo_anadido,
+        o.creada_en,
+        o.actualizado_en,
+        o.usuario_id,
+        m.numero_mesa,
+        e.nombre AS establecimiento_nombre
+      FROM ordenes o
+      INNER JOIN mesas m ON o.mesa_id = m.id_mesa
+      INNER JOIN establecimientos e ON m.establecimiento_id = e.id_establecimiento
+      WHERE o.mesa_id = ? 
+      AND o.status IN ('pendiente', 'en_preparacion', 'entregada')
+      ORDER BY 
+        CASE o.status 
+          WHEN 'en_preparacion' THEN 1
+          WHEN 'pendiente' THEN 2
+          WHEN 'entregada' THEN 3
+        END,
+        o.creada_en DESC
+    `;
+
+    db.query(query, [mesaId], (err, results) => {
+      if (err) {
+        console.error('Error al obtener órdenes de la mesa:', err);
+        return res.status(500).json({ error: 'Error al obtener órdenes de la mesa' });
+      }
+      res.json({ success: true, ordenes: results });
+    });
+  });
+};
+
 module.exports = {
   getOrdenes,
   getUsuariosActivos,
@@ -411,6 +470,7 @@ module.exports = {
   updateOrdenTiempo,
   deleteOrdenes,
   getEstadoOrdenesUsuarios,
-  getOrdenesUsuario
+  getOrdenesUsuario,
+  getOrdenesMesa
 };
 

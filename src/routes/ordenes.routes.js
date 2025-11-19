@@ -13,6 +13,9 @@ router.get('/usuarios-activos/:establecimientoId', ordenesController.getUsuarios
 // GET /api/ordenes/usuario - Obtener órdenes del usuario actual (cliente móvil)
 router.get('/usuario', ordenesController.getOrdenesUsuario);
 
+// GET /api/ordenes/mesa - Obtener órdenes de la mesa activa del usuario actual (cliente móvil)
+router.get('/mesa', ordenesController.getOrdenesMesa);
+
 // GET /api/ordenes/estado-usuarios/:establecimientoId - Obtener estado de órdenes por usuario
 router.get('/estado-usuarios/:establecimientoId', ordenesController.getEstadoOrdenesUsuarios);
 
