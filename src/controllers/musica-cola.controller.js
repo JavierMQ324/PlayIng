@@ -348,7 +348,7 @@ class MusicaColaController {
 
               let cancionId;
 
-        const insertToQueue = (cancionId) => {
+        const insertToQueue = (cancionId, retrying = false) => {
           // Obtener la posición actual máxima en la cola para este establecimiento
           db.query(
             'SELECT MAX(posicion) as max_pos FROM cola_cancion WHERE establecimiento_id = ?',
@@ -371,6 +371,10 @@ class MusicaColaController {
                 [cancionId, usuarioId, establecimientoId, nextPosition],
                 (err, result) => {
                   if (err) {
+                    if (err.code === 'ER_NO_REFERENCED_ROW_2' && !retrying) {
+                      console.warn('Song reference missing while inserting to queue. Recreating song and retrying...');
+                      return recreateSongAndRetry();
+                    }
                     console.error('Error inserting to queue:', err);
                     return res.status(500).json({
                       success: false,
@@ -398,18 +402,30 @@ class MusicaColaController {
           );
         };
 
-        if (existingCancion.length > 0) {
-          cancionId = existingCancion[0].id_cancion;
-          console.log('Song already exists in database with id:', cancionId);
-          insertToQueue(cancionId);
-        } else {
-          // Insertar la canción en la tabla canciones
+        const insertSongRecord = (onSuccess, skipCleanup = false) => {
           db.query(
             `INSERT INTO canciones (spotify_id, titulo, artista, album, duracion, imagen_url, genero, preview_url) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [spotify_id, titulo, artista, album || '', duracion || 0, imagen_url || null, genero || null, preview_url || null],
             (err, result) => {
               if (err) {
+                if (err.code === 'ER_DUP_ENTRY') {
+                  console.warn('Song already existed while recreating, fetching ID...');
+                  return db.query(
+                    'SELECT id_cancion FROM canciones WHERE spotify_id = ?',
+                    [spotify_id],
+                    (dupErr, rows) => {
+                      if (dupErr || rows.length === 0) {
+                        console.error('Error fetching song after duplicate entry:', dupErr);
+                        return res.status(500).json({
+                          success: false,
+                          error: 'Failed to add song to queue'
+                        });
+                      }
+                      return onSuccess(rows[0].id_cancion);
+                    }
+                  );
+                }
                 console.error('Error inserting new song:', err);
                 return res.status(500).json({
                   success: false,
@@ -417,20 +433,32 @@ class MusicaColaController {
                 });
               }
 
-              cancionId = result.insertId;
-              console.log('New song inserted with id:', cancionId);
-              
-              // 🧹 Limpiar canciones antiguas después de insertar una nueva
+              const proceed = () => onSuccess(result.insertId);
+
+              if (skipCleanup) {
+                return proceed();
+              }
+
               MusicaColaController.cleanupOldSongs((cleanupErr) => {
                 if (cleanupErr) {
                   console.error('Error during cleanup (non-critical):', cleanupErr);
-                  // No retornamos error porque la canción ya se insertó correctamente
                 }
-                
-                insertToQueue(cancionId);
+                proceed();
               });
             }
           );
+        };
+
+        const recreateSongAndRetry = () => {
+          insertSongRecord((newCancionId) => insertToQueue(newCancionId, true), true);
+        };
+
+        if (existingCancion.length > 0) {
+          cancionId = existingCancion[0].id_cancion;
+          console.log('Song already exists in database with id:', cancionId);
+          insertToQueue(cancionId);
+        } else {
+          insertSongRecord((newCancionId) => insertToQueue(newCancionId));
         }
             }
           );
@@ -973,7 +1001,7 @@ class MusicaColaController {
 
         let cancionId;
 
-        const insertToQueueAndPlay = (cancionId) => {
+        const insertToQueueAndPlay = (cancionId, retrying = false) => {
           // Primero, mover todas las canciones "playing" al historial
           db.query(
             'SELECT id, cancion_id, anadido_por FROM cola_cancion WHERE establecimiento_id = ? AND status = ?',
@@ -1033,6 +1061,10 @@ class MusicaColaController {
                       [cancionId, usuarioId, establecimientoId, 'playing'],
                       (err, result) => {
                         if (err) {
+                          if (err.code === 'ER_NO_REFERENCED_ROW_2' && !retrying) {
+                            console.warn('Song reference missing while inserting (play now). Recreating song and retrying...');
+                            return recreateSongAndRetry();
+                          }
                           console.error('Error inserting to queue:', err);
                           return res.status(500).json({
                             success: false,
@@ -1140,17 +1172,28 @@ class MusicaColaController {
           );
         };
 
-        if (existingCancion.length > 0) {
-          cancionId = existingCancion[0].id_cancion;
-          console.log('Song already exists in database with id:', cancionId);
-          insertToQueueAndPlay(cancionId);
-        } else {
-          // Insertar la canción en la tabla canciones
+        const insertSongRecord = (onSuccess, skipCleanup = false) => {
           db.query(
             'INSERT INTO canciones (spotify_id, titulo, artista, album, duracion, imagen_url, genero, preview_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [spotify_id, titulo, artista, album || '', duracion || 0, imagen_url || null, genero || null, preview_url || null],
             (err, result) => {
               if (err) {
+                if (err.code === 'ER_DUP_ENTRY') {
+                  return db.query(
+                    'SELECT id_cancion FROM canciones WHERE spotify_id = ?',
+                    [spotify_id],
+                    (dupErr, rows) => {
+                      if (dupErr || rows.length === 0) {
+                        console.error('Error fetching song after duplicate entry:', dupErr);
+                        return res.status(500).json({
+                          success: false,
+                          error: 'Failed to add song'
+                        });
+                      }
+                      return onSuccess(rows[0].id_cancion);
+                    }
+                  );
+                }
                 console.error('Error inserting new song:', err);
                 return res.status(500).json({
                   success: false,
@@ -1158,23 +1201,278 @@ class MusicaColaController {
                 });
               }
 
-              cancionId = result.insertId;
-              console.log('New song inserted with id:', cancionId);
-              
-              // 🧹 Limpiar canciones antiguas después de insertar una nueva
+              const proceed = () => onSuccess(result.insertId);
+
+              if (skipCleanup) {
+                return proceed();
+              }
+
               MusicaColaController.cleanupOldSongs((cleanupErr) => {
                 if (cleanupErr) {
                   console.error('Error during cleanup (non-critical):', cleanupErr);
-                  // No retornamos error porque la canción ya se insertó correctamente
                 }
-                
-                insertToQueueAndPlay(cancionId);
+                proceed();
               });
             }
           );
+        };
+
+        const recreateSongAndRetry = () => {
+          insertSongRecord((newCancionId) => insertToQueueAndPlay(newCancionId, true), true);
+        };
+
+        if (existingCancion.length > 0) {
+          cancionId = existingCancion[0].id_cancion;
+          console.log('Song already exists in database with id:', cancionId);
+          insertToQueueAndPlay(cancionId);
+        } else {
+          insertSongRecord((newCancionId) => insertToQueueAndPlay(newCancionId));
         }
       }
     );
+  }
+
+  // ✅ NUEVO: Reemplazar toda la cola con las canciones de un género
+  static async replaceQueueWithGenre(req, res) {
+    const { establecimientoId, usuarioId, tracks, genreName, randomize = true } = req.body;
+
+    if (!establecimientoId || !usuarioId || !Array.isArray(tracks)) {
+      return res.status(400).json({
+        success: false,
+        error: 'establecimientoId, usuarioId y tracks son obligatorios'
+      });
+    }
+
+    if (tracks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No hay canciones disponibles para reproducir'
+      });
+    }
+
+    const executeQuery = (sql, params = []) => new Promise((resolve, reject) => {
+      db.query(sql, params, (err, result) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(result);
+      });
+    });
+
+    try {
+      const sanitizedTracks = tracks
+        .map(track => ({
+          spotify_id: track.spotify_id,
+          titulo: track.titulo,
+          artista: track.artista,
+          album: track.album || '',
+          duracion: track.duracion || 0,
+          imagen_url: track.imagen_url || null,
+          genero: track.genero || genreName || null,
+          preview_url: track.preview_url || null
+        }))
+        .filter(track => track.spotify_id && track.titulo && track.artista);
+
+      if (sanitizedTracks.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No se encontraron canciones válidas para el género seleccionado'
+        });
+      }
+
+      const orderedTracks = randomize
+        ? sanitizedTracks
+            .map(track => ({ ...track, _order: Math.random() }))
+            .sort((a, b) => a._order - b._order)
+            .map(({ _order, ...track }) => track)
+        : sanitizedTracks;
+
+      const socketService = req.app.get('socketService');
+
+      // Registrar la canción que estaba sonando (si existe) como interrumpida en el historial
+      const playingItems = await executeQuery(
+        'SELECT id, cancion_id, anadido_por FROM cola_cancion WHERE establecimiento_id = ? AND status = "playing"',
+        [establecimientoId]
+      );
+
+      if (playingItems.length > 0) {
+        for (const item of playingItems) {
+          try {
+            await executeQuery(
+              `INSERT INTO historial_reproduccion (cancion_id, establecimiento_id, usuario_id, completada) 
+               VALUES (?, ?, ?, 0)`,
+              [item.cancion_id, establecimientoId, item.anadido_por]
+            );
+          } catch (historyErr) {
+            console.error('Error registrando canción interrumpida en historial:', historyErr);
+          }
+        }
+      }
+
+      // Limpiar votos y cola actuales
+      await executeQuery(
+        `DELETE v FROM votos v
+         INNER JOIN cola_cancion cc ON v.cola_cancion_id = cc.id
+         WHERE cc.establecimiento_id = ?`,
+        [establecimientoId]
+      );
+      await executeQuery('DELETE FROM cola_cancion WHERE establecimiento_id = ?', [establecimientoId]);
+
+      const insertedItems = [];
+      let position = 1;
+
+      for (const track of orderedTracks) {
+        const existingSong = await executeQuery('SELECT id_cancion FROM canciones WHERE spotify_id = ?', [track.spotify_id]);
+        let cancionId;
+
+        if (existingSong.length > 0) {
+          cancionId = existingSong[0].id_cancion;
+        } else {
+          const insertedSong = await executeQuery(
+            `INSERT INTO canciones (spotify_id, titulo, artista, album, duracion, imagen_url, genero, preview_url) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              track.spotify_id,
+              track.titulo,
+              track.artista,
+              track.album || '',
+              track.duracion || 0,
+              track.imagen_url || null,
+              track.genero || null,
+              track.preview_url || null
+            ]
+          );
+          cancionId = insertedSong.insertId;
+        }
+
+        const status = position === 1 ? 'playing' : 'pending';
+        const insertedQueue = await executeQuery(
+          `INSERT INTO cola_cancion (cancion_id, anadido_por, establecimiento_id, posicion, status) 
+           VALUES (?, ?, ?, ?, ?)`,
+          [cancionId, usuarioId, establecimientoId, position, status]
+        );
+
+        insertedItems.push({
+          queueId: insertedQueue.insertId,
+          position,
+          status
+        });
+
+        position++;
+      }
+
+      await new Promise((resolve, reject) => {
+        MusicaColaController.reorderQueuePositions(establecimientoId, (err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+
+      let playbackTrack = null;
+      if (insertedItems.length > 0) {
+        const currentPlayingQuery = await executeQuery(
+          `SELECT 
+            cc.id,
+            cc.cancion_id,
+            cc.anadido_por,
+            cc.posicion,
+            cc.status,
+            cc.agregada_en,
+            c.spotify_id,
+            c.titulo,
+            c.artista,
+            c.album,
+            c.duracion,
+            c.imagen_url,
+            c.genero,
+            c.preview_url,
+            CASE 
+              WHEN COALESCE(u.mostrar_nombre, 1) = 1 THEN u.nombre 
+              ELSE NULL 
+            END as usuario_nombre,
+            (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'like') as likes_count,
+            (SELECT COUNT(*) FROM votos WHERE cola_cancion_id = cc.id AND type = 'skip') as skips_count
+          FROM cola_cancion cc
+          INNER JOIN canciones c ON cc.cancion_id = c.id_cancion
+          INNER JOIN usuarios u ON cc.anadido_por = u.id_user
+          WHERE cc.id = ?
+          LIMIT 1`,
+          [insertedItems[0].queueId]
+        );
+
+        if (currentPlayingQuery.length > 0) {
+          playbackTrack = currentPlayingQuery[0];
+        }
+      }
+
+      if (socketService) {
+        socketService.emitQueueUpdate(establecimientoId);
+        if (playbackTrack) {
+          socketService.emitPlaybackUpdate(establecimientoId, {
+            currentTrack: {
+              id: playbackTrack.id,
+              cola_id: playbackTrack.id,
+              cancion_id: playbackTrack.cancion_id,
+              spotify_id: playbackTrack.spotify_id,
+              titulo: playbackTrack.titulo,
+              artista: playbackTrack.artista,
+              album: playbackTrack.album,
+              duracion: playbackTrack.duracion,
+              imagen_url: playbackTrack.imagen_url,
+              genero: playbackTrack.genero,
+              preview_url: playbackTrack.preview_url,
+              usuario_nombre: playbackTrack.usuario_nombre,
+              likes_count: playbackTrack.likes_count || 0,
+              skips_count: playbackTrack.skips_count || 0
+            },
+            isPlaying: true,
+            position: 0
+          });
+          socketService.emitTrackStarted(establecimientoId, {
+            cola_id: playbackTrack.id,
+            titulo: playbackTrack.titulo,
+            artista: playbackTrack.artista,
+            album: playbackTrack.album,
+            imagen_url: playbackTrack.imagen_url,
+            duracion: playbackTrack.duracion,
+            likes_count: playbackTrack.likes_count || 0,
+            skips_count: playbackTrack.skips_count || 0
+          });
+        }
+      }
+
+      MusicaColaController.cleanupOldSongs((cleanupErr) => {
+        if (cleanupErr) {
+          console.error('Error en cleanup (no crítico):', cleanupErr);
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: `Cola reemplazada con ${insertedItems.length} canciones`,
+        total: insertedItems.length,
+        playingQueueId: insertedItems[0]?.queueId || null,
+        currentTrack: playbackTrack
+          ? {
+              cola_id: playbackTrack.id,
+              spotify_id: playbackTrack.spotify_id,
+              titulo: playbackTrack.titulo,
+              artista: playbackTrack.artista,
+              album: playbackTrack.album,
+              duracion: playbackTrack.duracion,
+              imagen_url: playbackTrack.imagen_url,
+              genero: playbackTrack.genero,
+              preview_url: playbackTrack.preview_url
+            }
+          : null
+      });
+    } catch (error) {
+      console.error('Error reemplazando cola por género:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Error al reemplazar la cola con las canciones del género'
+      });
+    }
   }
 
   // ✅ Reordenar cola - cambiar posición de una canción
@@ -1329,6 +1627,191 @@ class MusicaColaController {
             success: true,
             message: 'Queue reordered successfully'
           });
+        });
+      }
+    );
+  }
+
+  // ✅ Mezclar aleatoriamente la cola (excepto la canción en reproducción)
+  static shuffleQueue(req, res) {
+    const { establecimientoId } = req.body;
+
+    if (!establecimientoId) {
+      return res.status(400).json({
+        success: false,
+        error: 'establecimientoId is required'
+      });
+    }
+
+    db.query(
+      'SELECT id, status FROM cola_cancion WHERE establecimiento_id = ? AND status IN ("pending", "playing") ORDER BY posicion ASC',
+      [establecimientoId],
+      (err, songs) => {
+        if (err) {
+          console.error('Error fetching queue for shuffling:', err);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to shuffle queue'
+          });
+        }
+
+        if (!songs || songs.length === 0) {
+          return res.json({
+            success: true,
+            message: 'Queue is empty'
+          });
+        }
+
+        const hasPlaying = songs.some(song => song.status === 'playing');
+        const pendingSongs = songs.filter(song => song.status === 'pending');
+
+        if (pendingSongs.length <= 1) {
+          return res.json({
+            success: true,
+            message: 'Not enough songs to shuffle',
+            total: pendingSongs.length
+          });
+        }
+
+        const shuffled = pendingSongs
+          .map(song => ({ ...song, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ sort, ...rest }) => rest);
+
+        let nextPosition = hasPlaying ? 2 : 1;
+        const caseStatements = [];
+        const params = [];
+        const ids = [];
+
+        shuffled.forEach(song => {
+          caseStatements.push('WHEN ? THEN ?');
+          params.push(song.id, nextPosition++);
+          ids.push(song.id);
+        });
+
+        const placeholders = ids.map(() => '?').join(',');
+        const query = `
+          UPDATE cola_cancion
+          SET posicion = CASE id
+            ${caseStatements.join(' ')}
+            ELSE posicion
+          END
+          WHERE id IN (${placeholders})
+        `;
+
+        db.query(query, [...params, ...ids], (updateErr) => {
+          if (updateErr) {
+            console.error('Error updating positions during shuffle:', updateErr);
+            return res.status(500).json({
+              success: false,
+              error: 'Failed to shuffle queue'
+            });
+          }
+
+          const socketService = req.app.get('socketService');
+          if (socketService) {
+            socketService.emitQueueUpdate(establecimientoId);
+          }
+
+          res.json({
+            success: true,
+            message: 'Queue shuffled successfully',
+            total: pendingSongs.length
+          });
+        });
+      }
+    );
+  }
+
+  // ✅ Limpiar la cola (manteniendo la canción en reproducción)
+  static clearQueue(req, res) {
+    const { establecimientoId } = req.body;
+
+    if (!establecimientoId) {
+      return res.status(400).json({
+        success: false,
+        error: 'establecimientoId is required'
+      });
+    }
+
+    db.query(
+      'SELECT id FROM cola_cancion WHERE establecimiento_id = ? AND status = "pending"',
+      [establecimientoId],
+      (err, songs) => {
+        if (err) {
+          console.error('Error fetching queue for clearing:', err);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to clear queue'
+          });
+        }
+
+        if (!songs || songs.length === 0) {
+          return res.json({
+            success: true,
+            message: 'No pending songs to clear',
+            removed: 0
+          });
+        }
+
+        const ids = songs.map(song => song.id);
+        const placeholders = ids.map(() => '?').join(',');
+
+        const deleteVotes = (callback) => {
+          db.query(
+            `DELETE FROM votos WHERE cola_cancion_id IN (${placeholders})`,
+            ids,
+            (voteErr) => {
+              if (voteErr) {
+                console.error('Error deleting votes while clearing queue:', voteErr);
+                return callback(voteErr);
+              }
+              callback(null);
+            }
+          );
+        };
+
+        const deleteSongs = () => {
+          db.query(
+            `DELETE FROM cola_cancion WHERE id IN (${placeholders})`,
+            ids,
+            (deleteErr) => {
+              if (deleteErr) {
+                console.error('Error deleting songs while clearing queue:', deleteErr);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to clear queue'
+                });
+              }
+
+              MusicaColaController.reorderQueuePositions(establecimientoId, (reorderErr) => {
+                if (reorderErr) {
+                  console.error('Error reordering queue after clearing:', reorderErr);
+                }
+
+                const socketService = req.app.get('socketService');
+                if (socketService) {
+                  socketService.emitQueueUpdate(establecimientoId);
+                }
+
+                res.json({
+                  success: true,
+                  message: 'Queue cleared successfully',
+                  removed: ids.length
+                });
+              });
+            }
+          );
+        };
+
+        deleteVotes((voteErr) => {
+          if (voteErr) {
+            return res.status(500).json({
+              success: false,
+              error: 'Failed to clear queue'
+            });
+          }
+          deleteSongs();
         });
       }
     );
