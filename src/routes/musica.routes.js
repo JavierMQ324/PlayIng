@@ -13,7 +13,8 @@ router.get('/artists/:artistId/tracks', MusicaController.getTracksByArtist);
 
 // Cola de canciones
 router.post('/queue', MusicaColaController.addToQueue);
-router.post('/queue/play-now', MusicaColaController.addToQueueAndPlayNow); 
+router.post('/queue/play-now', MusicaColaController.addToQueueAndPlayNow);
+router.post('/queue/next', MusicaColaController.addToQueueNext); 
 router.post('/queue/shuffle', MusicaColaController.shuffleQueue);
 router.post('/queue/clear', MusicaColaController.clearQueue);
 router.post('/queue/replace-with-genre', MusicaColaController.replaceQueueWithGenre);

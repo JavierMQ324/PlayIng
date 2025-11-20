@@ -2003,6 +2003,248 @@ class MusicaColaController {
       }
     );
   }
+
+  // ✅ NUEVO: Agregar canción justo después de la que está reproduciéndose (siguiente)
+  static addToQueueNext(req, res) {
+    const { spotify_id, titulo, artista, album, duracion, imagen_url, genero, preview_url, establecimientoId, usuarioId } = req.body;
+
+    if (!spotify_id || !titulo || !artista || !establecimientoId || !usuarioId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields'
+      });
+    }
+
+    // Verificar el rol del usuario
+    db.query(
+      'SELECT roll FROM usuarios WHERE id_user = ?',
+      [usuarioId],
+      (err, userResult) => {
+        if (err) {
+          console.error('Error checking user role:', err);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to add song to queue'
+          });
+        }
+
+        if (userResult.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Usuario no encontrado'
+          });
+        }
+
+        const userRole = userResult[0].roll;
+
+        // Si el usuario es cliente, verificar filtros
+        if (userRole === 'cliente') {
+          const checkFilterQuery = `
+            SELECT tipo, valor, nombre_display 
+            FROM filtros 
+            WHERE establecimiento_id = ? 
+            AND (
+              (tipo = 'cancion' AND valor = ?) OR
+              (tipo = 'artista' AND valor = ?) OR
+              (tipo = 'genero' AND valor = ?)
+            )
+            LIMIT 1
+          `;
+
+          db.query(
+            checkFilterQuery,
+            [establecimientoId, spotify_id, artista, genero || ''],
+            (err, filtros) => {
+              if (err) {
+                console.error('Error checking filters:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to check filters'
+                });
+              }
+
+              if (filtros.length > 0) {
+                const filtro = filtros[0];
+                return res.status(403).json({
+                  success: false,
+                  error: 'Esta canción está bloqueada',
+                  blocked: true,
+                  reason: {
+                    tipo: filtro.tipo,
+                    valor: filtro.valor,
+                    nombre: filtro.nombre_display
+                  }
+                });
+              }
+
+              proceedToAddSong();
+            }
+          );
+        } else {
+          proceedToAddSong();
+        }
+
+        function proceedToAddSong() {
+          // Primero, verificar si la canción ya existe en la tabla canciones
+          db.query(
+            'SELECT id_cancion FROM canciones WHERE spotify_id = ?',
+            [spotify_id],
+            (err, existingCancion) => {
+              if (err) {
+                console.error('Error checking existing song:', err);
+                return res.status(500).json({
+                  success: false,
+                  error: 'Failed to add song to queue'
+                });
+              }
+
+              let cancionId;
+
+              const insertToQueueNext = (cancionId, retrying = false) => {
+                // Buscar la canción que está reproduciéndose
+                db.query(
+                  'SELECT posicion FROM cola_cancion WHERE establecimiento_id = ? AND status = ? ORDER BY posicion ASC LIMIT 1',
+                  [establecimientoId, 'playing'],
+                  (err, playingResult) => {
+                    if (err) {
+                      console.error('Error getting playing song:', err);
+                      return res.status(500).json({
+                        success: false,
+                        error: 'Failed to add song to queue'
+                      });
+                    }
+
+                    let targetPosition;
+
+                    if (playingResult.length > 0) {
+                      // Hay una canción reproduciéndose, agregar en posición siguiente (posicion + 1)
+                      targetPosition = playingResult[0].posicion + 1;
+                      
+                      // Incrementar la posición de todas las canciones pending que están en o después de targetPosition
+                      db.query(
+                        'UPDATE cola_cancion SET posicion = posicion + 1 WHERE establecimiento_id = ? AND status = ? AND posicion >= ?',
+                        [establecimientoId, 'pending', targetPosition],
+                        (err) => {
+                          if (err) {
+                            console.error('Error updating positions:', err);
+                            return res.status(500).json({
+                              success: false,
+                              error: 'Failed to add song to queue'
+                            });
+                          }
+
+                          insertSongAtPosition(cancionId, targetPosition);
+                        }
+                      );
+                    } else {
+                      // No hay canción reproduciéndose, agregar en posición 1
+                      targetPosition = 1;
+                      
+                      // Incrementar la posición de todas las canciones pending
+                      db.query(
+                        'UPDATE cola_cancion SET posicion = posicion + 1 WHERE establecimiento_id = ? AND status = ?',
+                        [establecimientoId, 'pending'],
+                        (err) => {
+                          if (err) {
+                            console.error('Error updating positions:', err);
+                            return res.status(500).json({
+                              success: false,
+                              error: 'Failed to add song to queue'
+                            });
+                          }
+
+                          insertSongAtPosition(cancionId, targetPosition);
+                        }
+                      );
+                    }
+                  }
+                );
+              };
+
+              const insertSongAtPosition = (cancionId, position) => {
+                // Insertar en la cola de canciones
+                db.query(
+                  `INSERT INTO cola_cancion (cancion_id, anadido_por, establecimiento_id, posicion, status) 
+                   VALUES (?, ?, ?, ?, 'pending')`,
+                  [cancionId, usuarioId, establecimientoId, position],
+                  (err, result) => {
+                    if (err) {
+                      if (err.code === 'ER_NO_REFERENCED_ROW_2' && !retrying) {
+                        console.warn('Song reference missing while inserting to queue. Recreating song and retrying...');
+                        return recreateSongAndRetry();
+                      }
+                      console.error('Error inserting to queue:', err);
+                      return res.status(500).json({
+                        success: false,
+                        error: 'Failed to add song to queue'
+                      });
+                    }
+
+                    console.log(`Song added to queue at position ${position} (next)`);
+
+                    // 📡 Emitir evento de actualización de cola
+                    const socketService = req.app.get('socketService');
+                    if (socketService) {
+                      socketService.emitQueueUpdate(establecimientoId);
+                    }
+
+                    res.json({
+                      success: true,
+                      message: 'Song added to queue next successfully',
+                      position: position,
+                      queueId: result.insertId
+                    });
+                  }
+                );
+              };
+
+              const recreateSongAndRetry = () => {
+                db.query(
+                  `INSERT INTO canciones (spotify_id, titulo, artista, album, duracion, imagen_url, genero, preview_url) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [spotify_id, titulo, artista, album || '', duracion || 0, imagen_url || null, genero || null, preview_url || null],
+                  (err, insertResult) => {
+                    if (err) {
+                      console.error('Error recreating song:', err);
+                      return res.status(500).json({
+                        success: false,
+                        error: 'Failed to add song to queue'
+                      });
+                    }
+                    cancionId = insertResult.insertId;
+                    insertToQueueNext(cancionId, true);
+                  }
+                );
+              };
+
+              if (existingCancion.length > 0) {
+                cancionId = existingCancion[0].id_cancion;
+                insertToQueueNext(cancionId);
+              } else {
+                // Crear el registro de la canción
+                db.query(
+                  `INSERT INTO canciones (spotify_id, titulo, artista, album, duracion, imagen_url, genero, preview_url) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [spotify_id, titulo, artista, album || '', duracion || 0, imagen_url || null, genero || null, preview_url || null],
+                  (err, insertResult) => {
+                    if (err) {
+                      console.error('Error inserting song:', err);
+                      return res.status(500).json({
+                        success: false,
+                        error: 'Failed to add song to queue'
+                      });
+                    }
+                    cancionId = insertResult.insertId;
+                    insertToQueueNext(cancionId);
+                  }
+                );
+              }
+            }
+          );
+        }
+      }
+    );
+  }
 }
 
 module.exports = MusicaColaController;
