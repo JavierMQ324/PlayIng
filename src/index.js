@@ -21,6 +21,36 @@ const isNgrokDomain = (origin) => {
   if (!origin) return false;
   return origin.includes('.ngrok-free.app') || origin.includes('.ngrok.io') || origin.includes('.ngrok.app');
 };
+
+// Función para verificar si es una IP local (red privada)
+const isLocalIP = (origin) => {
+  if (!origin) return false;
+  
+  // Extraer la IP del origin (ej: http://192.168.1.100:4200)
+  const urlMatch = origin.match(/https?:\/\/([\d.]+)/);
+  if (!urlMatch) return false;
+  
+  const ip = urlMatch[1];
+  
+  // Verificar rangos de IPs privadas:
+  // 192.168.0.0 - 192.168.255.255
+  // 10.0.0.0 - 10.255.255.255
+  // 172.16.0.0 - 172.31.255.255
+  const parts = ip.split('.').map(Number);
+  
+  if (parts.length !== 4) return false;
+  
+  // 192.168.x.x
+  if (parts[0] === 192 && parts[1] === 168) return true;
+  
+  // 10.x.x.x
+  if (parts[0] === 10) return true;
+  
+  // 172.16.x.x - 172.31.x.x
+  if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+  
+  return false;
+};
 require('dotenv').config({ path: './src/.env' });
 
 
@@ -34,6 +64,12 @@ app.use(cors({
     
     // En desarrollo, permitir cualquier localhost
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Permitir IPs locales (red privada) para acceso desde otros dispositivos
+    if (isLocalIP(origin)) {
+      console.log(`✅ CORS: Permitiendo IP local: ${origin}`);
       return callback(null, true);
     }
     
